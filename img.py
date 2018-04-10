@@ -4,8 +4,9 @@ import os
 import cv2
 import imagehash
 import re
+import numpy as np
 
-from skimage.measure import structural_similarity as ssim
+from skimage.measure import compare_ssim as ssim
 
 from PIL import Image, ImageChops
 import requests
@@ -90,6 +91,3 @@ def get_image_from_response(response):
         return img
     else:
         return None
-
-print(image_perception_hash('55.jpg'))
-print(image_perception_hash('56.jpg'))
