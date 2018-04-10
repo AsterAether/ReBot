@@ -5,15 +5,18 @@ import time
 import os
 import re
 import urlmarker
+import img
+import datetime
 
 re_urls = re.compile(urlmarker.URL_REGEX)
 
-if not os.path.exists('files'):
-    os.mkdir('files')
+dirs = ['files', 'tmp']
+for dir in dirs:
+    if not os.path.exists(dir):
+        os.mkdir(dir)
 
 db.start_engine()
 db.start_session()
-db.create_ddl()
 
 bot = telegram.Bot(token=conf.token)
 
@@ -30,20 +33,36 @@ while True:
                     print(photo.file_id)
                     file = photo.get_file()
 
-                    if os.path.isfile('files/' + file.file_id + '.jpg'):
-                        bot.send_message(update.message.chat.id, 'This seems to be the same image I got recently...',
-                                         reply_to_message_id=update.message.message_id)
-
-                    file.download(custom_path='files/' + file.file_id + '.jpg')
+                    # if os.path.isfile('files/' + file.file_id + '.jpg'):
+                    #     bot.send_message(update.message.chat.id, 'This seems to be the same image I got recently...',
+                    #                      reply_to_message_id=update.message.message_id)
+                    filename = file.file_id + '.jpg'
+                    file.download(custom_path='files/' + filename)
+                    post = db.Post(filename=filename,
+                                   file_hash=img.image_perception_hash(filename),
+                                   text=img.image_to_string(filename),
+                                   timestamp=datetime.datetime.now(),
+                                   chat_id=update.message.chat.id,
+                                   message_id=update.message.message_id,
+                                   post_type_id=1)
+                    db.save(post)
                 if update.message.text:
                     text = update.message.text
                     urls = re_urls.findall(text)
-                    f = open('files/urls', 'a')
-                    for url in urls:
-                        f.write(url + '\n')
-                    f.flush()
-                    f.close()
-                    print(urls)
+                    if len(urls) > 0:
+                        url = urls[0]
+                        filename = str(update.message.chat.id) + '_' + str(update.message.message_id)
+
+                        filename = img.handle_url_image(url, filename)
+
+                        post = db.Post(filename_preview=filename,
+                                       file_preview_hash=img.image_perception_hash(filename) if filename else None,
+                                       preview_text=img.image_to_string(filename) if filename else None,
+                                       timestamp=datetime.datetime.now(),
+                                       chat_id=update.message.chat.id,
+                                       message_id=update.message.message_id,
+                                       post_type_id=2)
+                        db.save(post)
         if len(updates) > 0:
             offset = updates[-1].update_id + 1
     except telegram.error.TimedOut:

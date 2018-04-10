@@ -104,3 +104,4 @@ files/
 info
 conf.py
 .idea/
+tmp/
