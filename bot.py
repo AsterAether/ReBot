@@ -4,12 +4,12 @@ import conf
 import time
 import os
 import sys
+
+sys.path.append(conf.path_add)
 import img
 import datetime
 import schedule
 from difflib import SequenceMatcher
-
-sys.path.append(conf.path_add)
 
 
 def similar_text(a, b):
