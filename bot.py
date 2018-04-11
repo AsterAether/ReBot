@@ -54,7 +54,8 @@ def issue_warning(poster_id, message_id, chat_id, reason):
 
 def handle_repost(update):
     if update.message:
-
+        if update.message.document:
+            pass
         if update.message.photo:
             photos = update.message.photo
             photo = max(photos, key=lambda p: p.file_size)
@@ -249,6 +250,10 @@ def cmd_warn(args, update):
         poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                update.message.reply_to_message.from_user.name)
 
+        if poster.poster_id == conf.bot_id:
+            bot.send_message(update.message.chat.id, 'PLEASE DON\'T TRY TO WARN ME')
+            return
+
         count = issue_warning(poster.poster_id, update.message.reply_to_message.message_id, update.message.chat.id,
                               reason)
 
@@ -272,18 +277,19 @@ def cmd_my_warnings(args, update):
 
 
 def cmd_list_warnings(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        return
 
     try:
         poster = None
         if len(args) >= 1:
-            poster = db.find_user(args[0])
+            poster = db.find_user(' '.join(args))
 
         if not poster:
             poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                    update.message.reply_to_message.from_user.name)
+
+        if poster.poster_id != update.message.from_user.id and update.message.from_user.name not in conf.bot_overlords:
+            bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+            return
 
         i = 1
         for warning in db.get_warnings(poster.poster_id, update.message.chat.id):
@@ -296,14 +302,14 @@ def cmd_list_warnings(args, update):
 
     except AttributeError:
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS A ARGUMENT')
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS AN ARGUMENT')
 
 
 def cmd_post_stats(args, update):
     try:
         poster = None
         if len(args) >= 1:
-            poster = db.find_user(args[0])
+            poster = db.find_user(' '.join(args))
 
         if not poster:
             poster = db.get_poster(update.message.reply_to_message.from_user.id,
@@ -311,13 +317,13 @@ def cmd_post_stats(args, update):
 
         post_count, repost_count = db.get_post_stats(poster.poster_id, update.message.chat.id)
 
-        bot.send_message(update.message.chat.id, 'USER ' + poster.name + ' HAS ' + str(post_count) + ' POST' +
+        bot.send_message(update.message.chat.id, 'USER [' + poster.name + '] HAS ' + str(post_count) + ' POST' +
                          ('' if post_count == 1 else 'S') + ' AND ' + str(repost_count) + ' REPOST' +
                          ('' if repost_count == 1 else 'S'))
 
     except AttributeError:
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS A ARGUMENT')
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS AN ARGUMENT')
 
 
 def handle_commands(update):
@@ -348,6 +354,9 @@ while True:
     try:
         updates = bot.get_updates(offset=offset)
         for update in updates:
+            print(update)
+            if update.message:
+                print(update.message.parse_entities())
             handle_repost(update)
             handle_commands(update)
         if len(updates) > 0:
