@@ -1,9 +1,9 @@
 import sqlalchemy as sqa
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float, TEXT
 from sqlalchemy.orm import sessionmaker
 import conf
-
+import os
 import datetime
 
 Base = declarative_base()
@@ -49,11 +49,11 @@ class Post(Base):
     post_type_id = Column(Integer, ForeignKey('post_type.post_type_id'))
     filename = Column(String(length=100))
     file_hash = Column(CHAR(16))
-    text = Column(String(length=255))
+    text = Column(TEXT)
     url = Column(String(length=255))
     filename_preview = Column(String(length=100))
     file_preview_hash = Column(CHAR(16))
-    preview_text = Column(String(length=255))
+    preview_text = Column(TEXT)
     timestamp = Column(DateTime)
     chat_id = Column(Integer)
     message_id = Column(Integer)
@@ -68,11 +68,11 @@ class Repost(Base):
     original_post_id = Column(Integer, ForeignKey('post.post_id'))
     filename = Column(String(length=100))
     file_hash = Column(CHAR(16))
-    text = Column(String(length=255))
+    text = Column(TEXT)
     url = Column(String(length=255))
     filename_preview = Column(String(length=100))
     file_preview_hash = Column(CHAR(16))
-    preview_text = Column(String(length=255))
+    preview_text = Column(TEXT)
     timestamp = Column(DateTime)
     chat_id = Column(Integer)
     message_id = Column(Integer)
@@ -104,6 +104,11 @@ def create_ddl():
 
     stop_session()
     stop_engine()
+
+
+def get_random_post(chat_id):
+    global session
+    return session.execute('SELECT * FROM post WHERE chat_id= ' + str(chat_id) + ' ORDER BY RAND()').fetchall()[0]
 
 
 def start_engine():
@@ -181,9 +186,34 @@ def get_post_stats(poster_id, chat_id):
     return post_count, repost_count
 
 
+def post_cleanup(message_id, chat_id):
+    global session
+    post = session.query(Post).filter(Post.message_id == message_id).filter(Post.chat_id == chat_id).first()
+    reposts = session.query(Repost).filter(Repost.original_post_id == post.post_id).all()
+
+    session.query(Repost).filter(Repost.original_post_id == post.post_id).delete()
+    session.query(Post).filter(Post.post_id == post.post_id).delete()
+
+    if post.filename:
+        os.remove('files/' + post.filename)
+    if post.filename_preview:
+        os.remove('files/' + post.filename_preview)
+
+    for repost in reposts:
+        if repost.filename:
+            os.remove('files/' + repost.filename)
+        if repost.filename_preview:
+            os.remove('files/' + repost.filename_preview)
+
+
 def get_repost(repost_id):
     global session
     return session.query(Repost).filter(Repost.repost_id == repost_id).first()
+
+
+def get_post_per_message(message_id):
+    global session
+    return session.query(Post).filter(Post.message_id == message_id).first()
 
 
 def find_user(name):

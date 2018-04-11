@@ -15,7 +15,7 @@ import pytesseract
 
 pytesseract.pytesseract.tesseract_cmd = conf.tesseract_path
 tessdata_dir_config = '--tessdata-dir "' + conf.tessdata_path + '"'
-re_text = re.compile(r'[\W]+')
+re_text = re.compile(r'[^A-Za-z0-9]+')
 
 
 def image_perception_hash(filename):
@@ -48,7 +48,6 @@ def compare_image_ssim(filename1, filename2):
 def image_to_string(filename):
     image = cv2.imread('files/' + filename)
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-
     # gray = cv2.threshold(gray, 0, 255,
     #                      cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
 
@@ -64,7 +63,7 @@ def image_to_string(filename):
 
 def handle_url_image(url, filename):
     response = requests.get(url)
-    if 'image' in response.headers.get('Content-Type'):
+    if 'image' in response.headers.get('Content-Type') and 'gif' not in response.headers.get('Content-Type'):
         content_type = response.headers.get('Content-Type')
         img = get_image_from_response(response)
         path = 'files/' + filename + '.' + content_type.replace('image/', '')
@@ -74,6 +73,8 @@ def handle_url_image(url, filename):
         soup = BeautifulSoup(response.text, 'html.parser')
         image_meta = soup.find('meta', property="og:image")
         if image_meta:
+            if 'gif' in image_meta.get('content'):
+                return None
             response = requests.get(image_meta.get('content'))
             img = get_image_from_response(response)
             content_type = response.headers.get('Content-Type')
