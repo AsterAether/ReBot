@@ -181,6 +181,11 @@ def get_post_stats(poster_id, chat_id):
     return post_count, repost_count
 
 
+def get_repost(repost_id):
+    global session
+    return session.query(Repost).filter(Repost.repost_id == repost_id).first()
+
+
 def find_user(name):
     global session
     user = session.query(Poster).filter(Poster.name == name).first()

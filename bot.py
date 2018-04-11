@@ -4,12 +4,9 @@ import conf
 import time
 import os
 import re
-import urlmarker
 import img
 import datetime
 from difflib import SequenceMatcher
-
-re_urls = re.compile(urlmarker.URL_REGEX)
 
 
 def similar_text(a, b):
@@ -93,26 +90,51 @@ def handle_repost(update):
                     count = issue_warning(reposter.reposter_id, update.message.message_id,
                                           update.message.chat.id, 'IMAGE REPOST')
 
-                    bot.send_message(update.message.chat.id,
-                                     'REPOST DETECTED; SIMILARITY INDEX: ' + str(
-                                         img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
-                                     reply_to_message_id=update.message.message_id)
-                    bot.send_message(update.message.chat.id,
-                                     'ORIGINAL IMAGE',
-                                     reply_to_message_id=result['message_id'])
+                    if conf.delete_reposts and update.message.chat.type == 'group':
 
-                    repost = db.Repost(filename=filename,
-                                       file_hash=p_hash,
-                                       text=text,
-                                       timestamp=datetime.datetime.now(),
-                                       chat_id=update.message.chat.id,
-                                       message_id=update.message.message_id,
-                                       original_post_id=result['post_id'],
-                                       post_type_id=1,
-                                       similarity_index=img_distance,
-                                       reposter_id=reposter.reposter_id
-                                       )
-                    db.save(repost)
+                        update.message.delete()
+
+                        repost = db.Repost(filename=filename,
+                                           file_hash=p_hash,
+                                           text=text,
+                                           timestamp=datetime.datetime.now(),
+                                           chat_id=update.message.chat.id,
+                                           original_post_id=result['post_id'],
+                                           post_type_id=1,
+                                           similarity_index=img_distance,
+                                           reposter_id=reposter.reposter_id
+                                           )
+                        db.save(repost)
+
+                        bot.send_message(update.message.chat.id,
+                                         str(
+                                             repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
+                                         + '; SIMILARITY INDEX: ' + str(
+                                             img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
+                                         'ORIGINAL IMAGE IN REPLY',
+                                         reply_to_message_id=result['message_id'],
+                                         parse_mode=telegram.ParseMode.MARKDOWN)
+                    else:
+                        bot.send_message(update.message.chat.id,
+                                         'REPOST DETECTED; SIMILARITY INDEX: ' + str(
+                                             img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
+                                         reply_to_message_id=update.message.message_id)
+                        bot.send_message(update.message.chat.id,
+                                         'ORIGINAL IMAGE',
+                                         reply_to_message_id=result['message_id'])
+
+                        repost = db.Repost(filename=filename,
+                                           file_hash=p_hash,
+                                           text=text,
+                                           timestamp=datetime.datetime.now(),
+                                           chat_id=update.message.chat.id,
+                                           message_id=update.message.message_id,
+                                           original_post_id=result['post_id'],
+                                           post_type_id=1,
+                                           similarity_index=img_distance,
+                                           reposter_id=reposter.reposter_id
+                                           )
+                        db.save(repost)
                     break
             if not is_repost:
                 post = db.Post(filename=filename,
@@ -126,10 +148,10 @@ def handle_repost(update):
                                                        update.message.from_user.name).poster_id)
                 db.save(post)
         if update.message.text:
-            text = update.message.text
-            urls = re_urls.findall(text)
+            urls = update.message.parse_entities(types=['url'])
             if len(urls) > 0:
-                url = urls[0]
+                urlEntity, text = urls.popitem()
+                url = text
                 filename = str(update.message.chat.id) + '_' + str(update.message.message_id)
 
                 filename = img.handle_url_image(url, filename)
@@ -165,26 +187,51 @@ def handle_repost(update):
                             count = issue_warning(reposter.reposter_id, update.message.message_id,
                                                   update.message.chat.id, 'URL IMAGE REPOST')
 
-                            bot.send_message(update.message.chat.id,
-                                             'REPOST DETECTED; SIMILARITY INDEX: ' + str(
-                                                 img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
-                                             reply_to_message_id=update.message.message_id)
-                            bot.send_message(update.message.chat.id,
-                                             'ORIGINAL IMAGE',
-                                             reply_to_message_id=result['message_id'])
+                            if conf.delete_reposts and update.message.chat.type == 'group':
 
-                            repost = db.Repost(filename_preview=filename,
-                                               file_preview_hash=p_hash,
-                                               preview_text=text,
-                                               url=url,
-                                               timestamp=datetime.datetime.now(),
-                                               chat_id=update.message.chat.id,
-                                               message_id=update.message.message_id,
-                                               original_post_id=result['post_id'],
-                                               post_type_id=2,
-                                               similarity_index=img_distance,
-                                               reposter_id=reposter.reposter_id)
-                            db.save(repost)
+                                update.message.delete()
+
+                                repost = db.Repost(filename_preview=filename,
+                                                   file_preview_hash=p_hash,
+                                                   preview_text=text,
+                                                   url=url,
+                                                   timestamp=datetime.datetime.now(),
+                                                   chat_id=update.message.chat.id,
+                                                   original_post_id=result['post_id'],
+                                                   post_type_id=2,
+                                                   similarity_index=img_distance,
+                                                   reposter_id=reposter.reposter_id)
+                                db.save(repost)
+
+                                bot.send_message(update.message.chat.id,
+                                                 str(
+                                                     repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
+                                                 + '; SIMILARITY INDEX: ' + str(
+                                                     img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
+                                                 'ORIGINAL IMAGE IN REPLY',
+                                                 reply_to_message_id=result['message_id'],
+                                                 parse_mode=telegram.ParseMode.MARKDOWN)
+                            else:
+                                bot.send_message(update.message.chat.id,
+                                                 'REPOST DETECTED; SIMILARITY INDEX: ' + str(
+                                                     img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
+                                                 reply_to_message_id=update.message.message_id)
+                                bot.send_message(update.message.chat.id,
+                                                 'ORIGINAL IMAGE',
+                                                 reply_to_message_id=result['message_id'])
+
+                                repost = db.Repost(filename_preview=filename,
+                                                   file_preview_hash=p_hash,
+                                                   preview_text=text,
+                                                   url=url,
+                                                   timestamp=datetime.datetime.now(),
+                                                   chat_id=update.message.chat.id,
+                                                   message_id=update.message.message_id,
+                                                   original_post_id=result['post_id'],
+                                                   post_type_id=2,
+                                                   similarity_index=img_distance,
+                                                   reposter_id=reposter.reposter_id)
+                                db.save(repost)
                             break
                     if not is_repost:
                         post = db.Post(filename_preview=filename,
@@ -207,21 +254,43 @@ def handle_repost(update):
                         count = issue_warning(reposter.reposter_id, update.message.message_id,
                                               update.message.chat.id, 'URL REPOST')
 
-                        bot.send_message(update.message.chat.id,
-                                         'REPOST DETECTED; REASON: URL' + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
-                                         reply_to_message_id=update.message.message_id)
-                        bot.send_message(update.message.chat.id,
-                                         'ORIGINAL POST',
-                                         reply_to_message_id=url_same_post.message_id)
-                        repost = db.Repost(url=url,
-                                           timestamp=datetime.datetime.now(),
-                                           chat_id=update.message.chat.id,
-                                           message_id=update.message.message_id,
-                                           original_post_id=url_same_post.post_id,
-                                           post_type_id=2,
-                                           similarity_index=1,
-                                           reposter_id=reposter.reposter_id)
-                        db.save(repost)
+                        if conf.delete_reposts and update.message.chat.type == 'group':
+
+                            update.message.delete()
+
+                            repost = db.Repost(url=url,
+                                               timestamp=datetime.datetime.now(),
+                                               chat_id=update.message.chat.id,
+                                               original_post_id=url_same_post.post_id,
+                                               post_type_id=2,
+                                               similarity_index=1,
+                                               reposter_id=reposter.reposter_id)
+                            db.save(repost)
+
+                            bot.send_message(update.message.chat.id,
+                                             str(
+                                                 repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
+                                             + '; REASON: URL\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
+                                             'ORIGINAL IMAGE IN REPLY',
+                                             reply_to_message_id=url_same_post.message_id,
+                                             parse_mode=telegram.ParseMode.MARKDOWN)
+                        else:
+                            bot.send_message(update.message.chat.id,
+                                             'REPOST DETECTED; REASON: URL' + '\nWARNING NUMBER ' + str(
+                                                 count) + ' ISSUED',
+                                             reply_to_message_id=update.message.message_id)
+                            bot.send_message(update.message.chat.id,
+                                             'ORIGINAL POST',
+                                             reply_to_message_id=url_same_post.message_id)
+                            repost = db.Repost(url=url,
+                                               timestamp=datetime.datetime.now(),
+                                               chat_id=update.message.chat.id,
+                                               message_id=update.message.message_id,
+                                               original_post_id=url_same_post.post_id,
+                                               post_type_id=2,
+                                               similarity_index=1,
+                                               reposter_id=reposter.reposter_id)
+                            db.save(repost)
                     else:
                         post = db.Post(
                             url=url,
@@ -240,7 +309,11 @@ def cmd_start(args, update):
 
 def cmd_warn(args, update):
     if update.message.from_user.name not in conf.bot_overlords:
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        count = issue_warning(poster.poster_id, update.message.message_id, update.message.chat.id,
+                              'UNAUTHORIZED WARNING ATTEMPT')
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
+                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED')
         return
 
     try:
@@ -277,7 +350,6 @@ def cmd_my_warnings(args, update):
 
 
 def cmd_list_warnings(args, update):
-
     try:
         poster = None
         if len(args) >= 1:
@@ -326,6 +398,35 @@ def cmd_post_stats(args, update):
                          'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS AN ARGUMENT')
 
 
+def cmd_get_repost(args, update):
+    if update.message.from_user.name not in conf.bot_overlords:
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        return
+
+    try:
+        repost_info = update.message.reply_to_message
+
+        if repost_info.from_user.id != conf.bot_id:
+            bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A REPOST DETECTION')
+            return
+
+        repost_id = int(repost_info.text.split(';')[0])
+
+        repost = db.get_repost(repost_id)
+        poster = db.get_poster(repost.reposter_id, None)
+
+        if repost.post_type_id == 1:
+            bot.send_photo(update.message.chat.id, repost.filename.replace('.jpg', ''),
+                           caption='REPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))
+        elif repost.post_type_id == 2:
+            bot.send_message(update.message.chat.id,
+                             repost.url + '\nREPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))
+
+    except (AttributeError, ValueError):
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A REPOST DETECTION TO GET THE REPOST')
+
+
 def handle_commands(update):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
@@ -340,6 +441,7 @@ def handle_commands(update):
                     'mywarnings': cmd_my_warnings,
                     'listwarnings': cmd_list_warnings,
                     'poststats': cmd_post_stats,
+                    'getrepost': cmd_get_repost,
                     'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                                   'COMMANDS: ' + ', '.join(
                                                                       ['/' + c for c in commands.keys()]))}
