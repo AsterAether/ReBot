@@ -122,7 +122,7 @@ def handle_repost(update):
                                                  img_distance) + '\nWARNING NUMBER ' + str(
                                                  count) + ' ISSUED' + '\nORIGINAL IMAGE IN REPLY',
                                              reply_to_message_id=result['message_id'],
-                                             parse_mode=telegram.ParseMode.MARKDOWN)
+                                             parse_mode=telegram.ParseMode.MARKDOWN, disable_notification=conf.silent)
                         except telegram.error.BadRequest:
                             db.post_cleanup(result['message_id'], update.message.chat.id)
                     else:
@@ -130,10 +130,11 @@ def handle_repost(update):
                             bot.send_message(update.message.chat.id,
                                              'REPOST DETECTED; SIMILARITY INDEX: ' + str(
                                                  img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
-                                             reply_to_message_id=update.message.message_id)
+                                             reply_to_message_id=update.message.message_id,
+                                             disable_notification=conf.silent)
                             bot.send_message(update.message.chat.id,
                                              'ORIGINAL IMAGE',
-                                             reply_to_message_id=result['message_id'])
+                                             reply_to_message_id=result['message_id'], disable_notification=conf.silent)
 
                             repost = db.Repost(filename=filename,
                                                file_hash=p_hash,
@@ -227,7 +228,8 @@ def handle_repost(update):
                                                          count) + ' ISSUED\n' +
                                                      'ORIGINAL IMAGE IN REPLY',
                                                      reply_to_message_id=result['message_id'],
-                                                     parse_mode=telegram.ParseMode.MARKDOWN)
+                                                     parse_mode=telegram.ParseMode.MARKDOWN,
+                                                     disable_notification=conf.silent)
                                 except telegram.error.BadRequest:
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
                             else:
@@ -235,10 +237,12 @@ def handle_repost(update):
                                     bot.send_message(update.message.chat.id,
                                                      'REPOST DETECTED; SIMILARITY INDEX: ' + str(
                                                          img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
-                                                     reply_to_message_id=update.message.message_id)
+                                                     reply_to_message_id=update.message.message_id,
+                                                     disable_notification=conf.silent)
                                     bot.send_message(update.message.chat.id,
                                                      'ORIGINAL IMAGE',
-                                                     reply_to_message_id=result['message_id'])
+                                                     reply_to_message_id=result['message_id'],
+                                                     disable_notification=conf.silent)
                                 except telegram.error.BadRequest:
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
 
@@ -296,7 +300,8 @@ def handle_repost(update):
                                                  + '; REASON: URL\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
                                                  'ORIGINAL IMAGE IN REPLY',
                                                  reply_to_message_id=url_same_post.message_id,
-                                                 parse_mode=telegram.ParseMode.MARKDOWN)
+                                                 parse_mode=telegram.ParseMode.MARKDOWN,
+                                                 disable_notification=conf.silent)
                             except telegram.error.BadRequest:
                                 db.post_cleanup(result['message_id'], update.message.chat.id)
                         else:
@@ -304,10 +309,12 @@ def handle_repost(update):
                                 bot.send_message(update.message.chat.id,
                                                  'REPOST DETECTED; REASON: URL' + '\nWARNING NUMBER ' + str(
                                                      count) + ' ISSUED',
-                                                 reply_to_message_id=update.message.message_id)
+                                                 reply_to_message_id=update.message.message_id,
+                                                 disable_notification=conf.silent)
                                 bot.send_message(update.message.chat.id,
                                                  'ORIGINAL POST',
-                                                 reply_to_message_id=url_same_post.message_id)
+                                                 reply_to_message_id=url_same_post.message_id,
+                                                 disable_notification=conf.silent)
                                 repost = db.Repost(url=url,
                                                    timestamp=datetime.datetime.now(),
                                                    chat_id=update.message.chat.id,
@@ -336,7 +343,7 @@ def handle_deletion(update):
 
 
 def cmd_start(args, update):
-    bot.send_message(update.message.chat.id, 'HELLO; IF YOU NEED HELP CALL /help')
+    bot.send_message(update.message.chat.id, 'HELLO; IF YOU NEED HELP CALL /help', disable_notification=conf.silent)
 
 
 def cmd_warn(args, update):
@@ -346,7 +353,7 @@ def cmd_warn(args, update):
                               update.message.chat.id,
                               'UNAUTHORIZED WARNING ATTEMPT')
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
-                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED')
+                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED', disable_notification=conf.silent)
         return
 
     try:
@@ -357,7 +364,7 @@ def cmd_warn(args, update):
                                update.message.reply_to_message.from_user.name)
 
         if poster.poster_id == conf.bot_id:
-            bot.send_message(update.message.chat.id, 'PLEASE DON\'T TRY TO WARN ME')
+            bot.send_message(update.message.chat.id, 'PLEASE DON\'T TRY TO WARN ME', disable_notification=conf.silent)
             return
 
         count = issue_warning(poster.poster_id, update.message.from_user.name,
@@ -367,9 +374,10 @@ def cmd_warn(args, update):
         bot.send_message(update.message.chat.id,
                          'YOU [' + update.message.reply_to_message.from_user.mention_markdown() +
                          '] ARE WARNED; WARNING NUMBER ' + str(count),
-                         parse_mode=telegram.ParseMode.MARKDOWN)
+                         parse_mode=telegram.ParseMode.MARKDOWN, disable_notification=conf.silent)
     except AttributeError:
-        bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT')
+        bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT',
+                         disable_notification=conf.silent)
 
 
 def cmd_my_warnings(args, update):
@@ -380,7 +388,7 @@ def cmd_my_warnings(args, update):
     bot.send_message(update.message.chat.id,
                      'YOU [' + update.message.from_user.mention_markdown() +
                      '] HAVE ' + str(count) + ' WARNING' + ('' if count == 1 else 'S'),
-                     parse_mode=telegram.ParseMode.MARKDOWN)
+                     parse_mode=telegram.ParseMode.MARKDOWN, disable_notification=conf.silent)
 
 
 def cmd_list_warnings(args, update):
@@ -394,7 +402,8 @@ def cmd_list_warnings(args, update):
                                    update.message.reply_to_message.from_user.name)
 
         if poster.poster_id != update.message.from_user.id and update.message.from_user.name not in conf.bot_overlords:
-            bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+            bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+                             disable_notification=conf.silent)
             return
 
         i = 1
@@ -403,12 +412,13 @@ def cmd_list_warnings(args, update):
                              'WARNING ' + str(
                                  i) + ' OF ' + update.message.reply_to_message.from_user.mention_markdown() + '\nREASON: ' + warning.reason,
                              parse_mode=telegram.ParseMode.MARKDOWN,
-                             reply_to_message_id=warning.message_id)
+                             reply_to_message_id=warning.message_id, disable_notification=conf.silent)
             i += 1
 
     except AttributeError:
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS AN ARGUMENT')
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS AN ARGUMENT',
+                         disable_notification=conf.silent)
 
 
 def cmd_post_stats(args, update):
@@ -425,23 +435,26 @@ def cmd_post_stats(args, update):
 
         bot.send_message(update.message.chat.id, 'USER [' + poster.name + '] HAS ' + str(post_count) + ' POST' +
                          ('' if post_count == 1 else 'S') + ' AND ' + str(repost_count) + ' REPOST' +
-                         ('' if repost_count == 1 else 'S'))
+                         ('' if repost_count == 1 else 'S'), disable_notification=conf.silent)
 
     except AttributeError:
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS AN ARGUMENT')
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS AN ARGUMENT',
+                         disable_notification=conf.silent)
 
 
 def cmd_get_repost(args, update):
     if update.message.from_user.name not in conf.bot_overlords:
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+                         disable_notification=conf.silent)
         return
 
     try:
         repost_info = update.message.reply_to_message
 
         if repost_info.from_user.id != conf.bot_id:
-            bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A REPOST DETECTION')
+            bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A REPOST DETECTION',
+                             disable_notification=conf.silent)
             return
 
         repost_id = int(repost_info.text.split(';')[0])
@@ -454,16 +467,18 @@ def cmd_get_repost(args, update):
                            caption='REPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))
         elif repost.post_type_id == 2:
             bot.send_message(update.message.chat.id,
-                             repost.url + '\nREPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))
+                             repost.url + '\nREPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp),
+                             disable_notification=conf.silent)
 
     except (AttributeError, ValueError):
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A REPOST DETECTION TO GET THE REPOST')
+                         'YOU NEED TO REPLY TO A REPOST DETECTION TO GET THE REPOST', disable_notification=conf.silent)
 
 
 def cmd_random_post(args, update):
     if update.message.from_user.name not in conf.bot_overlords:
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+                         disable_notification=conf.silent)
         return
 
     post_random(update.message.chat.id)
@@ -477,7 +492,8 @@ def post_random(chat_id):
                        caption='POST FROM ' + poster.name + ' AT ' + str(post.timestamp))
     elif post.post_type_id == 2:
         bot.send_message(chat_id,
-                         post.url + '\nPOST FROM ' + poster.name + ' AT ' + str(post.timestamp))
+                         post.url + '\nPOST FROM ' + poster.name + ' AT ' + str(post.timestamp),
+                         disable_notification=conf.silent)
 
 
 def cmd_get_text(args, update):
@@ -488,14 +504,14 @@ def cmd_get_text(args, update):
         if post:
             bot.send_message(update.message.chat.id,
                              post.text,
-                             reply_to_message_id=post.message_id)
+                             reply_to_message_id=post.message_id, disable_notification=conf.silent)
         else:
             bot.send_message(update.message.chat.id,
-                             'I DON\'T HAVE THIS POST SAVED')
+                             'I DON\'T HAVE THIS POST SAVED', disable_notification=conf.silent)
 
     except AttributeError:
         bot.send_message(update.message.chat.id,
-                         'YOU NEED TO REPLY TO A POST TO GET ITS TEXT')
+                         'YOU NEED TO REPLY TO A POST TO GET ITS TEXT', disable_notification=conf.silent)
 
 
 def handle_commands(update):
@@ -517,12 +533,14 @@ def handle_commands(update):
                     'gettext': cmd_get_text,
                     'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                                   'COMMANDS: ' + ', '.join(
-                                                                      ['/' + c for c in commands.keys()]))}
+                                                                      ['/' + c for c in commands.keys()]),
+                                                                  disable_notification=conf.silent)}
 
         try:
             commands[cmd](args, update)
         except KeyError:
-            bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd)
+            bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd,
+                             disable_notification=conf.silent)
 
 
 if __name__ == '__main__':
