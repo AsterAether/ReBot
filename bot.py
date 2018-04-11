@@ -208,7 +208,11 @@ def handle_repost(update):
 
                             if conf.delete_reposts and update.message.chat.type == 'group':
 
-                                update.message.delete()
+                                try:
+                                    update.message.delete()
+                                except telegram.error.BadRequest:
+                                    print('MESSAGE ALREADY DELETED')
+                                    break
 
                                 repost = db.Repost(filename_preview=filename,
                                                    file_preview_hash=p_hash,
@@ -285,7 +289,10 @@ def handle_repost(update):
 
                         if conf.delete_reposts and update.message.chat.type == 'group':
 
-                            update.message.delete()
+                            try:
+                                update.message.delete()
+                            except telegram.error.BadRequest:
+                                print('MESSAGE ALREADY DELETED')
 
                             repost = db.Repost(url=url,
                                                timestamp=datetime.datetime.now(),
@@ -305,7 +312,7 @@ def handle_repost(update):
                                                  parse_mode=telegram.ParseMode.MARKDOWN,
                                                  disable_notification=conf.silent)
                             except telegram.error.BadRequest:
-                                db.post_cleanup(result['message_id'], update.message.chat.id)
+                                db.post_cleanup(url_same_post.message_id, update.message.chat.id)
                         else:
                             try:
                                 bot.send_message(update.message.chat.id,
