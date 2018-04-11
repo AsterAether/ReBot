@@ -26,6 +26,7 @@ class Warning(Base):
     chat_id = Column(Integer)
     timestamp = Column(DateTime)
     poster_id = Column(Integer, ForeignKey('poster.poster_id'))
+    reason = Column(String(255))
 
 
 class Poster(Base):
@@ -164,6 +165,26 @@ def get_similar_posts(hash, chat_id):
 def get_warning_count(poster_id, chat_id):
     global session
     return session.query(Warning).filter(Warning.poster_id == poster_id).filter(Warning.chat_id == chat_id).count()
+
+
+def get_warnings(poster_id, chat_id):
+    global session
+    return session.query(Warning).filter(Warning.poster_id == poster_id).filter(Warning.chat_id == chat_id).order_by(
+        Warning.timestamp).all()
+
+
+def get_post_stats(poster_id, chat_id):
+    global session
+    post_count = session.query(Post).filter(Post.poster_id == poster_id).filter(Post.chat_id == chat_id).count()
+    repost_count = session.query(Repost).filter(Repost.reposter_id == poster_id).filter(
+        Repost.chat_id == chat_id).count()
+    return post_count, repost_count
+
+
+def find_user(name):
+    global session
+    user = session.query(Poster).filter(Poster.name == name).first()
+    return user
 
 
 def stop_session():

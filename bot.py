@@ -40,8 +40,21 @@ offset = 0
 clear_count = 0
 
 
+def issue_warning(poster_id, message_id, chat_id, reason):
+    warning = db.Warning(message_id=message_id,
+                         chat_id=chat_id,
+                         timestamp=datetime.datetime.now(),
+                         poster_id=poster_id,
+                         reason=reason)
+
+    db.save(warning)
+
+    return db.get_warning_count(poster_id, chat_id)
+
+
 def handle_repost(update):
     if update.message:
+
         if update.message.photo:
             photos = update.message.photo
             photo = max(photos, key=lambda p: p.file_size)
@@ -70,14 +83,23 @@ def handle_repost(update):
                 print(img_distance)
                 if img_distance >= conf.img_threshold or (
                         img_distance >= conf.img_text_chk_threshold
-                        and similar_text(text, r_text)) >= conf.text_threshold:
+                        and text and r_text
+                        and (similar_text(text, r_text) >= conf.text_threshold)):
+                    is_repost = True
+
+                    reposter = db.get_reposter(update.message.from_user.id,
+                                               update.message.from_user.name)
+                    count = issue_warning(reposter.reposter_id, update.message.message_id,
+                                          update.message.chat.id, 'IMAGE REPOST')
+
                     bot.send_message(update.message.chat.id,
-                                     'REPOST DETECTED; SIMILARITY INDEX: ' + str(img_distance),
+                                     'REPOST DETECTED; SIMILARITY INDEX: ' + str(
+                                         img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
                                      reply_to_message_id=update.message.message_id)
                     bot.send_message(update.message.chat.id,
                                      'ORIGINAL IMAGE',
                                      reply_to_message_id=result['message_id'])
-                    is_repost = True
+
                     repost = db.Repost(filename=filename,
                                        file_hash=p_hash,
                                        text=text,
@@ -87,8 +109,7 @@ def handle_repost(update):
                                        original_post_id=result['post_id'],
                                        post_type_id=1,
                                        similarity_index=img_distance,
-                                       reposter_id=db.get_reposter(update.message.from_user.id,
-                                                                   update.message.from_user.name).reposter_id
+                                       reposter_id=reposter.reposter_id
                                        )
                     db.save(repost)
                     break
@@ -134,14 +155,23 @@ def handle_repost(update):
                         print(img_distance)
                         if img_distance >= conf.img_threshold or (
                                 img_distance >= conf.img_text_chk_threshold
-                                and similar_text(text, r_text)) >= conf.text_threshold:
+                                and text and r_text
+                                and (similar_text(text, r_text) >= conf.text_threshold)):
+                            is_repost = True
+
+                            reposter = db.get_reposter(update.message.from_user.id,
+                                                       update.message.from_user.name)
+                            count = issue_warning(reposter.reposter_id, update.message.message_id,
+                                                  update.message.chat.id, 'URL IMAGE REPOST')
+
                             bot.send_message(update.message.chat.id,
-                                             'REPOST DETECTED; SIMILARITY INDEX: ' + str(img_distance),
+                                             'REPOST DETECTED; SIMILARITY INDEX: ' + str(
+                                                 img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
                                              reply_to_message_id=update.message.message_id)
                             bot.send_message(update.message.chat.id,
                                              'ORIGINAL IMAGE',
                                              reply_to_message_id=result['message_id'])
-                            is_repost = True
+
                             repost = db.Repost(filename_preview=filename,
                                                file_preview_hash=p_hash,
                                                preview_text=text,
@@ -152,8 +182,7 @@ def handle_repost(update):
                                                original_post_id=result['post_id'],
                                                post_type_id=2,
                                                similarity_index=img_distance,
-                                               reposter_id=db.get_reposter(update.message.from_user.id,
-                                                                           update.message.from_user.name).reposter_id)
+                                               reposter_id=reposter.reposter_id)
                             db.save(repost)
                             break
                     if not is_repost:
@@ -172,8 +201,13 @@ def handle_repost(update):
                     url_same_post = db.get_same_url_post(url, update.message.chat.id)
 
                     if url_same_post:
+                        reposter = db.get_reposter(update.message.from_user.id,
+                                                   update.message.from_user.name)
+                        count = issue_warning(reposter.reposter_id, update.message.message_id,
+                                              update.message.chat.id, 'URL REPOST')
+
                         bot.send_message(update.message.chat.id,
-                                         'REPOST DETECTED; REASON: URL',
+                                         'REPOST DETECTED; REASON: URL' + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
                                          reply_to_message_id=update.message.message_id)
                         bot.send_message(update.message.chat.id,
                                          'ORIGINAL POST',
@@ -185,8 +219,7 @@ def handle_repost(update):
                                            original_post_id=url_same_post.post_id,
                                            post_type_id=2,
                                            similarity_index=1,
-                                           reposter_id=db.get_reposter(update.message.from_user.id,
-                                                                       update.message.from_user.name).reposter_id)
+                                           reposter_id=reposter.reposter_id)
                         db.save(repost)
                     else:
                         post = db.Post(
@@ -201,31 +234,30 @@ def handle_repost(update):
 
 
 def cmd_start(args, update):
-    bot.send_message(update.message.chat.id, 'HELLO')
+    bot.send_message(update.message.chat.id, 'HELLO; IF YOU NEED HELP CALL /help')
 
 
 def cmd_warn(args, update):
-
     if update.message.from_user.name not in conf.bot_overlords:
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         return
 
-    poster = db.get_poster(update.message.reply_to_message.from_user.id,
-                           update.message.reply_to_message.from_user.name)
+    try:
+        reason = 'MANUAL WARNING'
+        if len(args) >= 1:
+            reason = args[0]
+        poster = db.get_poster(update.message.reply_to_message.from_user.id,
+                               update.message.reply_to_message.from_user.name)
 
-    warning = db.Warning(message_id=update.message.message_id,
-                         chat_id=update.message.chat.id,
-                         timestamp=datetime.datetime.now(),
-                         poster_id=poster.poster_id)
+        count = issue_warning(poster.poster_id, update.message.reply_to_message.message_id, update.message.chat.id,
+                              reason)
 
-    db.save(warning)
-
-    count = db.get_warning_count(poster.poster_id, update.message.chat.id)
-
-    bot.send_message(update.message.chat.id,
-                     'YOU [' + update.message.reply_to_message.from_user.mention_markdown() +
-                     '] ARE WARNED; WARNING NUMBER ' + str(count),
-                     parse_mode=telegram.ParseMode.MARKDOWN)
+        bot.send_message(update.message.chat.id,
+                         'YOU [' + update.message.reply_to_message.from_user.mention_markdown() +
+                         '] ARE WARNED; WARNING NUMBER ' + str(count),
+                         parse_mode=telegram.ParseMode.MARKDOWN)
+    except AttributeError:
+        bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT')
 
 
 def cmd_my_warnings(args, update):
@@ -235,24 +267,79 @@ def cmd_my_warnings(args, update):
     count = db.get_warning_count(poster.poster_id, update.message.chat.id)
     bot.send_message(update.message.chat.id,
                      'YOU [' + update.message.from_user.mention_markdown() +
-                     '] HAVE ' + str(count) + ' WARNING' + '' if count == 1 else 'S',
+                     '] HAVE ' + str(count) + ' WARNING' + ('' if count == 1 else 'S'),
                      parse_mode=telegram.ParseMode.MARKDOWN)
 
 
+def cmd_list_warnings(args, update):
+    if update.message.from_user.name not in conf.bot_overlords:
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        return
+
+    try:
+        poster = None
+        if len(args) >= 1:
+            poster = db.find_user(args[0])
+
+        if not poster:
+            poster = db.get_poster(update.message.reply_to_message.from_user.id,
+                                   update.message.reply_to_message.from_user.name)
+
+        i = 1
+        for warning in db.get_warnings(poster.poster_id, update.message.chat.id):
+            bot.send_message(update.message.chat.id,
+                             'WARNING ' + str(
+                                 i) + ' OF ' + update.message.reply_to_message.from_user.mention_markdown() + '\nREASON: ' + warning.reason,
+                             parse_mode=telegram.ParseMode.MARKDOWN,
+                             reply_to_message_id=warning.message_id)
+            i += 1
+
+    except AttributeError:
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS A ARGUMENT')
+
+
+def cmd_post_stats(args, update):
+    try:
+        poster = None
+        if len(args) >= 1:
+            poster = db.find_user(args[0])
+
+        if not poster:
+            poster = db.get_poster(update.message.reply_to_message.from_user.id,
+                                   update.message.reply_to_message.from_user.name)
+
+        post_count, repost_count = db.get_post_stats(poster.poster_id, update.message.chat.id)
+
+        bot.send_message(update.message.chat.id, 'USER ' + poster.name + ' HAS ' + str(post_count) + ' POST' +
+                         ('' if post_count == 1 else 'S') + ' AND ' + str(repost_count) + ' REPOST' +
+                         ('' if repost_count == 1 else 'S'))
+
+    except AttributeError:
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS STATS OR PASS THE USER AS A ARGUMENT')
+
+
 def handle_commands(update):
-    if update.message.text and update.message.text.startswith('/'):
+    if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
+        command = command.replace(conf.bot_name, '')
         print('COMMAND RECEIVED: ' + command)
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
 
+        commands = {'start': cmd_start,
+                    'warn': cmd_warn,
+                    'mywarnings': cmd_my_warnings,
+                    'listwarnings': cmd_list_warnings,
+                    'poststats': cmd_post_stats,
+                    'help': lambda args, update: bot.send_message(update.message.chat.id,
+                                                                  'COMMANDS: ' + ', '.join(
+                                                                      ['/' + c for c in commands.keys()]))}
+
         try:
-            {
-                'start': cmd_start,
-                'warn': cmd_warn,
-                'mywarnings': cmd_my_warnings
-            }[cmd](args, update)
+            commands[cmd](args, update)
         except KeyError:
             bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd)
 
