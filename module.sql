@@ -1,5 +1,5 @@
-DROP FUNCTION IF EXISTS phash_distance;
-
+DELIMITER //
+DROP FUNCTION IF EXISTS phash_distance //
 CREATE FUNCTION phash_distance(p_hash1 CHAR(16), p_hash2 CHAR(16))
   RETURNS FLOAT
 DETERMINISTIC
@@ -22,10 +22,8 @@ DETERMINISTIC
     UNTIL i = 8
     END REPEAT;
     RETURN 1 - count / 64.0;
-  END;
-
-DROP PROCEDURE IF EXISTS get_post_per_distance;
-
+  END //
+DROP PROCEDURE IF EXISTS get_post_per_distance //
 CREATE PROCEDURE get_post_per_distance(p_hash CHAR(16), p_chat_id INTEGER, p_threshold FLOAT)
 DETERMINISTIC
   BEGIN
@@ -41,9 +39,8 @@ DETERMINISTIC
              phash_distance(file_preview_hash, p_hash) >= p_threshold)
       ORDER BY distance, distance_preview;
     COMMIT;
-  END;
-
-DROP PROCEDURE IF EXISTS get_repost_per_distance;
+  END //
+DROP PROCEDURE IF EXISTS get_repost_per_distance //
 CREATE PROCEDURE get_repost_per_distance(p_hash CHAR(16), p_chat_id INTEGER, p_threshold FLOAT)
 DETERMINISTIC
   BEGIN
@@ -59,4 +56,5 @@ DETERMINISTIC
              phash_distance(file_preview_hash, p_hash) >= p_threshold)
       ORDER BY distance, distance_preview;
     COMMIT;
-  END;
+  END //
+DELIMITER ;
