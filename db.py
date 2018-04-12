@@ -108,7 +108,11 @@ def create_ddl():
 
 def get_random_post(chat_id):
     global session
-    return session.execute('SELECT * FROM post WHERE chat_id= ' + str(chat_id) + ' ORDER BY RAND()').fetchall()[0]
+    result = session.execute('SELECT * FROM post WHERE chat_id= ' + str(chat_id) + ' ORDER BY RAND()').fetchall()
+    if len(result) == 0:
+        return None
+    else
+        return result[0]
 
 
 def start_engine():
