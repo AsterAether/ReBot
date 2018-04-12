@@ -569,7 +569,7 @@ def cmd_get_text(args, update):
         post = db.get_post_per_message(post_info.message_id, update.message.chat.id)
         if post:
             bot.send_message(update.message.chat.id,
-                             post.text,
+                             'TEXT:\n' + post.text,
                              reply_to_message_id=post.message_id, disable_notification=conf.silent)
         else:
             bot.send_message(update.message.chat.id,
