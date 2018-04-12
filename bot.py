@@ -118,13 +118,16 @@ def handle_repost(update):
                         db.save(repost)
 
                         try:
-                            bot.send_message(update.message.chat.id,
-                                             str(
-                                                 repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown() + '; SIMILARITY INDEX: ' + str(
-                                                 img_distance) + '\nWARNING NUMBER ' + str(
-                                                 count) + ' ISSUED' + '\nORIGINAL IMAGE IN REPLY',
-                                             reply_to_message_id=result['message_id'],
-                                             parse_mode=telegram.ParseMode.MARKDOWN, disable_notification=conf.silent)
+                            msg = bot.send_message(update.message.chat.id,
+                                                   str(
+                                                       repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown() + '; SIMILARITY INDEX: ' + str(
+                                                       img_distance) + '\nWARNING NUMBER ' + str(
+                                                       count) + ' ISSUED' + '\nORIGINAL IMAGE IN REPLY',
+                                                   reply_to_message_id=result['message_id'],
+                                                   parse_mode=telegram.ParseMode.MARKDOWN,
+                                                   disable_notification=conf.silent)
+                            repost.message_id = msg.message_id
+                            db.save(repost)
                         except telegram.error.BadRequest:
                             db.post_cleanup(result['message_id'], update.message.chat.id)
                     else:
@@ -226,16 +229,18 @@ def handle_repost(update):
                                                    reposter_id=reposter.reposter_id)
                                 db.save(repost)
                                 try:
-                                    bot.send_message(update.message.chat.id,
-                                                     str(
-                                                         repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                                     + '; SIMILARITY INDEX: ' + str(
-                                                         img_distance) + '\nWARNING NUMBER ' + str(
-                                                         count) + ' ISSUED\n' +
-                                                     'ORIGINAL IMAGE IN REPLY',
-                                                     reply_to_message_id=result['message_id'],
-                                                     parse_mode=telegram.ParseMode.MARKDOWN,
-                                                     disable_notification=conf.silent)
+                                    msg = bot.send_message(update.message.chat.id,
+                                                           str(
+                                                               repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
+                                                           + '; SIMILARITY INDEX: ' + str(
+                                                               img_distance) + '\nWARNING NUMBER ' + str(
+                                                               count) + ' ISSUED\n' +
+                                                           'ORIGINAL IMAGE IN REPLY',
+                                                           reply_to_message_id=result['message_id'],
+                                                           parse_mode=telegram.ParseMode.MARKDOWN,
+                                                           disable_notification=conf.silent)
+                                    repost.message_id = msg.message_id
+                                    db.save(repost)
                                 except telegram.error.BadRequest:
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
                             else:
@@ -303,14 +308,16 @@ def handle_repost(update):
                                                reposter_id=reposter.reposter_id)
                             db.save(repost)
                             try:
-                                bot.send_message(update.message.chat.id,
-                                                 str(
-                                                     repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                                 + '; REASON: URL\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
-                                                 'ORIGINAL IMAGE IN REPLY',
-                                                 reply_to_message_id=url_same_post.message_id,
-                                                 parse_mode=telegram.ParseMode.MARKDOWN,
-                                                 disable_notification=conf.silent)
+                                msg = bot.send_message(update.message.chat.id,
+                                                       str(
+                                                           repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
+                                                       + '; REASON: URL\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
+                                                       'ORIGINAL IMAGE IN REPLY',
+                                                       reply_to_message_id=url_same_post.message_id,
+                                                       parse_mode=telegram.ParseMode.MARKDOWN,
+                                                       disable_notification=conf.silent)
+                                repost.message_id = msg.message_id
+                                db.save(repost)
                             except telegram.error.BadRequest:
                                 db.post_cleanup(url_same_post.message_id, update.message.chat.id)
                         else:
@@ -496,7 +503,7 @@ def cmd_random_post(args, update):
 def post_random(chat_id):
     post = db.get_random_post(chat_id)
     if not post:
-        bot.send_message(chat_id, 'NO POSTS FOUND')
+        bot.send_message(chat_id, 'NO POSTS FOUND', conf.silent)
         return
     poster = db.get_poster(post.poster_id, None)
     if post.post_type_id == 1:
@@ -526,6 +533,57 @@ def cmd_get_text(args, update):
                          'YOU NEED TO REPLY TO A POST TO GET ITS TEXT', disable_notification=conf.silent)
 
 
+def cmd_forgive(args, update):
+    if update.message.from_user.name not in conf.bot_overlords:
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+                         disable_notification=conf.silent)
+        return
+
+    try:
+        repost_info = update.message.reply_to_message
+
+        if repost_info.from_user.id != conf.bot_id:
+            bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A REPOST DETECTION',
+                             disable_notification=conf.silent)
+            return
+
+        repost_id = int(repost_info.text.split(';')[0])
+
+        repost = db.get_repost(repost_id)
+
+        db.forgive_repost(repost)
+
+        poster = db.get_poster(repost.reposter_id, None)
+
+        if conf.delete_reposts:
+            if repost.post_type_id == 1:
+                bot.send_photo(update.message.chat.id, repost.filename.replace('.jpg', ''),
+                               caption='FORGIVEN REPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))
+            elif repost.post_type_id == 2:
+                bot.send_message(update.message.chat.id,
+                                 repost.url + '\nFORGIVEN REPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp),
+                                 disable_notification=conf.silent)
+
+            try:
+                bot.delete_message(update.message.chat.id, repost.message_id)
+            except telegram.error.BadRequest:
+                print('MESSAGE ALREADY DELETED')
+        else:
+            bot.send_message(update.message.chat.id,
+                             'REPOST FORGIVEN FROM ' + poster.name + ' AT ' + str(repost.timestamp),
+                             disable_notification=conf.silent,
+                             reply_to_message_id=repost.message_id)
+
+        if repost.filename:
+            os.remove('files/' + repost.filename)
+        if repost.filename_preview:
+            os.remove('files/' + repost.filename_preview)
+    except (AttributeError, ValueError):
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A REPOST DETECTION TO FORGIVE THE REPOST',
+                         disable_notification=conf.silent)
+
+
 def handle_commands(update):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
@@ -543,6 +601,7 @@ def handle_commands(update):
                     'getrepost': cmd_get_repost,
                     'randompost': cmd_random_post,
                     'gettext': cmd_get_text,
+                    'forgive': cmd_forgive,
                     'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                                   'COMMANDS: ' + ', '.join(
                                                                       ['/' + c for c in commands.keys()]),

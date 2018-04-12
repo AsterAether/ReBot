@@ -210,6 +210,13 @@ def post_cleanup(message_id, chat_id):
             os.remove('files/' + repost.filename_preview)
 
 
+def forgive_repost(repost):
+    global session
+    session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()
+    session.query(Warning).filter(Warning.message_id == repost.message_id).filter(
+        Warning.chat_id == repost.chat_id).delete()
+
+
 def get_repost(repost_id):
     global session
     return session.query(Repost).filter(Repost.repost_id == repost_id).first()
