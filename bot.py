@@ -495,6 +495,9 @@ def cmd_random_post(args, update):
 
 def post_random(chat_id):
     post = db.get_random_post(chat_id)
+    if not post:
+        bot.send_message(chat_id, 'NO POSTS FOUND')
+        return
     poster = db.get_poster(post.poster_id, None)
     if post.post_type_id == 1:
         bot.send_photo(chat_id, post.filename.replace('.jpg', ''),
