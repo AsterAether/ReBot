@@ -40,6 +40,10 @@ offset = 0
 clear_count = 0
 
 
+def check_is_overlord(user_id):
+    return user_id in conf.bot_overlords
+
+
 def issue_warning(poster_id, name, message_id, chat_id, reason):
     if name in conf.bot_overlords:
         return 0
@@ -363,7 +367,7 @@ def cmd_start(args, update):
 
 
 def cmd_warn(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
+    if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         count = issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
                               update.message.chat.id,
@@ -417,7 +421,7 @@ def cmd_list_warnings(args, update):
             poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                    update.message.reply_to_message.from_user.name)
 
-        if poster.poster_id != update.message.from_user.id and update.message.from_user.name not in conf.bot_overlords:
+        if poster.poster_id != update.message.from_user.id and not check_is_overlord(update.message.from_user.id):
             bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
                              disable_notification=conf.silent)
             return
@@ -460,7 +464,7 @@ def cmd_post_stats(args, update):
 
 
 def cmd_get_repost(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
+    if not check_is_overlord(update.message.from_user.id):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
                          disable_notification=conf.silent)
         return
@@ -492,7 +496,7 @@ def cmd_get_repost(args, update):
 
 
 def cmd_random_post(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
+    if not check_is_overlord(update.message.from_user.id):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
                          disable_notification=conf.silent)
         return
@@ -534,7 +538,7 @@ def cmd_get_text(args, update):
 
 
 def cmd_forgive(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
+    if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         count = issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
                               update.message.chat.id,
@@ -589,7 +593,7 @@ def cmd_forgive(args, update):
 
 
 def cmd_del(args, update):
-    if update.message.from_user.name not in conf.bot_overlords:
+    if not check_is_overlord(update.message.from_user.id):
         # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
         #                  disable_notification=conf.silent)
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
@@ -644,7 +648,7 @@ def handle_commands(update):
         try:
             commands[cmd](args, update)
         except KeyError:
-            if cmd not in admin_commands or (update.message.from_user.name not in conf.bot_overlords):
+            if cmd not in admin_commands or not check_is_overlord(update.message.from_user.id):
                 bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd,
                                  disable_notification=conf.silent)
         try:
