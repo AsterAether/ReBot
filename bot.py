@@ -104,13 +104,6 @@ def handle_repost(update):
                                           update.message.chat.id, 'IMAGE REPOST')
 
                     if conf.delete_reposts and update.message.chat.type == 'group':
-
-                        try:
-                            update.message.delete()
-                        except telegram.error.BadRequest:
-                            print('MESSAGE ALREADY DELETED')
-                            break
-
                         repost = db.Repost(filename=filename,
                                            file_hash=p_hash,
                                            text=text,
@@ -132,6 +125,12 @@ def handle_repost(update):
                                                    reply_to_message_id=result['message_id'],
                                                    parse_mode=telegram.ParseMode.MARKDOWN,
                                                    disable_notification=conf.silent)
+                            try:
+                                update.message.delete()
+                            except telegram.error.BadRequest:
+                                print('MESSAGE ALREADY DELETED')
+                                break
+
                             repost.message_id = msg.message_id
                             db.save(repost)
                         except telegram.error.BadRequest:
@@ -220,12 +219,6 @@ def handle_repost(update):
 
                             if conf.delete_reposts and update.message.chat.type == 'group':
 
-                                try:
-                                    update.message.delete()
-                                except telegram.error.BadRequest:
-                                    print('MESSAGE ALREADY DELETED')
-                                    break
-
                                 repost = db.Repost(filename_preview=filename,
                                                    file_preview_hash=p_hash,
                                                    preview_text=text,
@@ -248,6 +241,13 @@ def handle_repost(update):
                                                            reply_to_message_id=result['message_id'],
                                                            parse_mode=telegram.ParseMode.MARKDOWN,
                                                            disable_notification=conf.silent)
+
+                                    try:
+                                        update.message.delete()
+                                    except telegram.error.BadRequest:
+                                        print('MESSAGE ALREADY DELETED')
+                                        break
+
                                     repost.message_id = msg.message_id
                                     db.save(repost)
                                 except telegram.error.BadRequest:
@@ -303,11 +303,6 @@ def handle_repost(update):
 
                         if conf.delete_reposts and update.message.chat.type == 'group':
 
-                            try:
-                                update.message.delete()
-                            except telegram.error.BadRequest:
-                                print('MESSAGE ALREADY DELETED')
-
                             repost = db.Repost(url=url,
                                                timestamp=datetime.datetime.now(),
                                                chat_id=update.message.chat.id,
@@ -325,6 +320,12 @@ def handle_repost(update):
                                                        reply_to_message_id=url_same_post.message_id,
                                                        parse_mode=telegram.ParseMode.MARKDOWN,
                                                        disable_notification=conf.silent)
+
+                                try:
+                                    update.message.delete()
+                                except telegram.error.BadRequest:
+                                    print('MESSAGE ALREADY DELETED')
+
                                 repost.message_id = msg.message_id
                                 db.save(repost)
                             except telegram.error.BadRequest:

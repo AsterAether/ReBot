@@ -198,16 +198,22 @@ def post_cleanup(message_id, chat_id):
     session.query(Repost).filter(Repost.original_post_id == post.post_id).delete()
     session.query(Post).filter(Post.post_id == post.post_id).delete()
 
-    if post.filename:
-        os.remove('files/' + post.filename)
-    if post.filename_preview:
-        os.remove('files/' + post.filename_preview)
+    try:
+        if post.filename:
+            os.remove('files/' + post.filename)
+        if post.filename_preview:
+            os.remove('files/' + post.filename_preview)
+    except FileNotFoundError:
+        pass
 
     for repost in reposts:
-        if repost.filename:
-            os.remove('files/' + repost.filename)
-        if repost.filename_preview:
-            os.remove('files/' + repost.filename_preview)
+        try:
+            if repost.filename:
+                os.remove('files/' + repost.filename)
+            if repost.filename_preview:
+                os.remove('files/' + repost.filename_preview)
+        except FileNotFoundError:
+            pass
 
 
 def forgive_repost(repost):
