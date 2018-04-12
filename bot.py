@@ -788,11 +788,17 @@ admin_commands = {
 def handle_commands(update):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
-        command = command.replace(conf.bot_name, '')
         print('COMMAND RECEIVED: ' + command)
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
+
+        if update.message.chat.type == 'group':
+            if conf.bot_name in cmd:
+                cmd = cmd.replace(conf.bot_name, '')
+            elif '@' in cmd:
+                return
+
         try:
             commands[cmd](args, update)
         except KeyError:
