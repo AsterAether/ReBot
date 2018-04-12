@@ -420,10 +420,11 @@ def cmd_my_warnings(args, update):
 def cmd_list_warnings(args, update):
     try:
         poster = None
+
         if len(args) >= 1:
             poster = db.find_user(' '.join(args))
 
-        if not poster:
+        if poster is None:
             poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                    update.message.reply_to_message.from_user.name)
 
@@ -436,22 +437,23 @@ def cmd_list_warnings(args, update):
 
         if len(warnings) == 0:
             bot.send_message(update.message.chat.id,
-                             'NO WARNINGS FOR USER ' + update.message.reply_to_message.from_user.name)
+                             'NO WARNINGS FOR USER ' + poster.name)
             return
 
         i = 1
         for warning in warnings:
             bot.send_message(update.message.chat.id,
                              'WARNING ' + str(
-                                 i) + ' OF ' + update.message.reply_to_message.from_user.mention_markdown() + '\nREASON: ' + warning.reason,
+                                 i) + ' OF ' + poster.name + '\nREASON: ' + warning.reason,
                              parse_mode=telegram.ParseMode.MARKDOWN,
                              reply_to_message_id=warning.message_id, disable_notification=conf.silent)
             i += 1
 
-    except AttributeError:
+    except AttributeError as e:
         bot.send_message(update.message.chat.id,
                          'YOU NEED TO REPLY TO A MESSAGE TO LIST THE USERS WARNINGS OR PASS THE USER AS AN ARGUMENT',
                          disable_notification=conf.silent)
+        print('LISTWARNINGS: ' + str(e))
 
 
 def cmd_post_stats(args, update):
@@ -460,7 +462,7 @@ def cmd_post_stats(args, update):
         if len(args) >= 1:
             poster = db.find_user(' '.join(args))
 
-        if not poster:
+        if poster is None:
             poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                    update.message.reply_to_message.from_user.name)
 
@@ -676,7 +678,7 @@ if __name__ == '__main__':
         try:
             updates = bot.get_updates(offset=offset)
             for update in updates:
-                print(update)
+                # print(update)
                 # if update.message:
                 #     print(update.message.parse_entities())
                 handle_deletion(update)
@@ -685,7 +687,8 @@ if __name__ == '__main__':
             if len(updates) > 0:
                 offset = updates[-1].update_id + 1
         except telegram.error.TimedOut:
-            print('No updates.')
+            # print('No updates.')
+            pass
         clear_count += 1
         if clear_count == conf.clear_every:
             tmp_clear()

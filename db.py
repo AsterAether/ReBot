@@ -235,8 +235,42 @@ def get_post_per_message(message_id):
 
 def find_user(name):
     global session
-    user = session.query(Poster).filter(Poster.name == name).first()
-    return user
+    return session.query(Poster).filter(Poster.name == name).first()
+
+
+def db_cleanup():
+    global engine
+    global session
+
+    start_engine()
+    start_session()
+
+    posts = session.query(Post).all()
+    reposts = session.query(Repost).all()
+
+    filenames = []
+    for post in posts:
+        if post.filename:
+            filenames.append(post.filename)
+        if post.filename_preview:
+            filenames.append(post.filename_preview)
+
+    for repost in reposts:
+        if repost.filename:
+            filenames.append(repost.filename)
+        if repost.filename_preview:
+            filenames.append(repost.filename_preview)
+
+    for the_file in os.listdir('files/'):
+        file_path = os.path.join('files/', the_file)
+        try:
+            if os.path.isfile(file_path) and the_file not in filenames:
+                os.remove(file_path)
+        except Exception as e:
+            print(e)
+
+    stop_session()
+    stop_engine()
 
 
 def stop_session():
