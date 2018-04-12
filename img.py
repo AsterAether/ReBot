@@ -61,6 +61,9 @@ def image_crop(filename):
 
 
 def compare_image_ssim(filename1, filename2):
+
+    print(filename1 + ' vs ' + filename2)
+
     image1 = cv2.imread('files/' + filename1)
     image2 = cv2.imread('files/' + filename2)
     height1, width1 = image1.shape[:2]
@@ -92,7 +95,11 @@ def image_to_string(filename):
 
 
 def handle_url_image(url, filename):
-    response = requests.get(url)
+    try:
+        response = requests.get(url)
+    except requests.exceptions.RequestException:
+        return None
+
     if 'image' in response.headers.get('Content-Type') and 'gif' not in response.headers.get('Content-Type'):
         content_type = response.headers.get('Content-Type')
         img = get_image_from_response(response)

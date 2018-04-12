@@ -34,9 +34,9 @@ DETERMINISTIC
         phash_distance(file_hash, p_hash)         AS distance,
         phash_distance(file_preview_hash, p_hash) AS distance_preview
       FROM post
-      WHERE chat_id = p_chat_id AND
-            (phash_distance(file_hash, p_hash) >= p_threshold OR
-             phash_distance(file_preview_hash, p_hash) >= p_threshold)
+      WHERE chat_id = p_chat_id OR chat_id IS NULL AND
+                                   (phash_distance(file_hash, p_hash) >= p_threshold OR
+                                    phash_distance(file_preview_hash, p_hash) >= p_threshold)
       ORDER BY distance, distance_preview;
     COMMIT;
   END //
@@ -51,9 +51,9 @@ DETERMINISTIC
         phash_distance(file_hash, p_hash)         AS distance,
         phash_distance(file_preview_hash, p_hash) AS distance_preview
       FROM repost
-      WHERE chat_id = p_chat_id AND
-            (phash_distance(file_hash, p_hash) >= p_threshold OR
-             phash_distance(file_preview_hash, p_hash) >= p_threshold)
+      WHERE chat_id = p_chat_id OR chat_id IS NULL AND
+                                   (phash_distance(file_hash, p_hash) >= p_threshold OR
+                                    phash_distance(file_preview_hash, p_hash) >= p_threshold)
       ORDER BY distance, distance_preview;
     COMMIT;
   END //

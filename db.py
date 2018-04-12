@@ -4,7 +4,6 @@ from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Floa
 from sqlalchemy.orm import sessionmaker
 import conf
 import os
-import datetime
 
 Base = declarative_base()
 engine = None
@@ -40,6 +39,14 @@ class Reposter(Base):
     __tablename__ = 'reposter'
 
     reposter_id = Column(Integer, ForeignKey('poster.poster_id'), primary_key=True)
+
+
+class Ban(Base):
+    __tablename__ = 'ban'
+
+    chat_id = Column(Integer, primary_key=True)
+    poster_id = Column(Integer, ForeignKey('poster.poster_id'), primary_key=True)
+    timestamp = Column(DateTime)
 
 
 class Post(Base):
@@ -171,6 +178,12 @@ def get_similar_posts(hash, chat_id):
     return results
 
 
+def post_exists(filename):
+    global session
+    post = session.query(Post).filter((Post.filename == filename) | (Post.filename_preview == filename)).first()
+    return post is not None
+
+
 def get_warning_count(poster_id, chat_id):
     global session
     return session.query(Warning).filter(Warning.poster_id == poster_id).filter(Warning.chat_id == chat_id).count()
@@ -197,6 +210,7 @@ def post_cleanup(message_id, chat_id):
 
     session.query(Repost).filter(Repost.original_post_id == post.post_id).delete()
     session.query(Post).filter(Post.post_id == post.post_id).delete()
+    session.commit()
 
     try:
         if post.filename:
@@ -221,11 +235,19 @@ def forgive_repost(repost):
     session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()
     # session.query(Warning).filter(Warning.message_id == repost.message_id).filter(
     #     Warning.chat_id == repost.chat_id).delete()
+    session.commit()
 
 
 def forgive_warning(warning):
     global session
     session.query(Warning).filter(Warning.warning_id == warning.warning_id).delete()
+    session.commit()
+
+
+def forgive_warnings_for_poster(poster_id):
+    global session
+    session.query(Warning).filter(Warning.poster_id == poster_id).delete()
+    session.commit()
 
 
 def get_repost(repost_id):
