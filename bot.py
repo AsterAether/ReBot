@@ -44,8 +44,8 @@ def check_is_overlord(user_id):
     return user_id in conf.bot_overlords
 
 
-def issue_warning(poster_id, name, message_id, chat_id, reason):
-    if name in conf.bot_overlords:
+def issue_warning(poster_id, message_id, chat_id, reason):
+    if poster_id in conf.bot_overlords:
         return 0
 
     warning = db.Warning(message_id=message_id,
@@ -99,7 +99,7 @@ def handle_repost(update):
 
                     reposter = db.get_reposter(update.message.from_user.id,
                                                update.message.from_user.name)
-                    count = issue_warning(reposter.reposter_id, update.message.from_user.name,
+                    count = issue_warning(reposter.reposter_id,
                                           update.message.message_id,
                                           update.message.chat.id, 'IMAGE REPOST')
 
@@ -213,7 +213,7 @@ def handle_repost(update):
 
                             reposter = db.get_reposter(update.message.from_user.id,
                                                        update.message.from_user.name)
-                            count = issue_warning(reposter.reposter_id, update.message.from_user.name,
+                            count = issue_warning(reposter.reposter_id,
                                                   update.message.message_id,
                                                   update.message.chat.id, 'URL IMAGE REPOST')
 
@@ -297,7 +297,7 @@ def handle_repost(update):
                     if url_same_post:
                         reposter = db.get_reposter(update.message.from_user.id,
                                                    update.message.from_user.name)
-                        count = issue_warning(reposter.reposter_id, update.message.from_user.name,
+                        count = issue_warning(reposter.reposter_id,
                                               update.message.message_id,
                                               update.message.chat.id, 'URL REPOST')
 
@@ -375,7 +375,7 @@ def cmd_start(args, update):
 def cmd_warn(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+        count = issue_warning(poster.poster_id, update.message.from_user.name,
                               update.message.chat.id,
                               'UNAUTHORIZED WARNING ATTEMPT')
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
@@ -394,7 +394,7 @@ def cmd_warn(args, update):
             return
 
         count = issue_warning(poster.poster_id, update.message.from_user.name,
-                              update.message.reply_to_message.message_id, update.message.chat.id,
+                              update.message.reply_to_message.message_id,
                               reason)
 
         bot.send_message(update.message.chat.id,
@@ -546,7 +546,7 @@ def cmd_get_text(args, update):
 def cmd_forgive(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+        count = issue_warning(poster.poster_id, update.message.from_user.name,
                               update.message.chat.id,
                               'UNAUTHORIZED FORGIVE ATTEMPT')
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
