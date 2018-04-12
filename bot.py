@@ -806,8 +806,6 @@ def main(pill):
     db.start_engine()
     db.start_session()
 
-    bot = telegram.Bot(token=conf.token)
-
     offset = 0
     clear_count = 0
 
@@ -842,6 +840,7 @@ def main(pill):
 
 
 if __name__ == '__main__':
+    bot = telegram.Bot(token=conf.token)
     stop_pill = threading.Event()
     bot_thread = threading.Thread(target=main, name='bot_thread', args=(stop_pill, ))
     bot_thread.start()
