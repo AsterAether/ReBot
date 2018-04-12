@@ -4,6 +4,7 @@ import conf
 import time
 import os
 import sys
+import threading
 
 sys.path.append(conf.path_add)
 import img
@@ -24,21 +25,6 @@ def tmp_clear():
                 os.remove(file_path)
         except Exception as e:
             print(e)
-
-
-dirs = ['files', 'tmp']
-for dir in dirs:
-    if not os.path.exists(dir):
-        os.mkdir(dir)
-
-db.start_engine()
-db.start_session()
-
-bot = telegram.Bot(token=conf.token)
-
-offset = 0
-clear_count = 0
-
 
 def check_is_overlord(user_id):
     return user_id in conf.bot_overlords
@@ -811,9 +797,22 @@ def handle_commands(update):
             pass
 
 
-if __name__ == '__main__':
+def main(pill):
+    dirs = ['files', 'tmp']
+    for dir in dirs:
+        if not os.path.exists(dir):
+            os.mkdir(dir)
+
+    db.start_engine()
+    db.start_session()
+
+    bot = telegram.Bot(token=conf.token)
+
+    offset = 0
+    clear_count = 0
+
     schedule.every().thursday.at('8:00').do(post_random, conf.schedue_chat_id)
-    while True:
+    while not pill.is_set():
         try:
             updates = bot.get_updates(offset=offset)
             for update in updates:
@@ -837,3 +836,17 @@ if __name__ == '__main__':
 
         schedule.run_pending()
         time.sleep(conf.timeout)
+
+    db.stop_session()
+    db.stop_engine()
+
+
+if __name__ == '__main__':
+    stop_pill = threading.Event()
+    bot_thread = threading.Thread(target=main, name='bot_thread', args=(stop_pill, ))
+    bot_thread.start()
+    line_input = ''
+    while line_input != 'exit':
+        line_input = input('').strip()
+
+    stop_pill.set()
