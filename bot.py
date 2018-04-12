@@ -26,11 +26,12 @@ def tmp_clear():
         except Exception as e:
             print(e)
 
+
 def check_is_overlord(user_id):
     return user_id in conf.bot_overlords
 
 
-def issue_warning(poster_id, poster_name, message_id, chat_id, reason):
+def issue_warning(poster_id, poster_name, message_id, chat_id, reason, chat_type):
     if poster_id in conf.bot_overlords:
         return 0
 
@@ -60,7 +61,7 @@ def issue_warning(poster_id, poster_name, message_id, chat_id, reason):
                          '] ARE WARNED\nREASON:' + reason + '\nWARNING NUMBER ' + str(count),
                          disable_notification=conf.silent)
 
-    if update.message.chat.type == 'group':
+    if chat_type == 'group':
         if conf.max_warnings - conf.kick_warn_threshold < count < conf.max_warnings:
             bot.send_message(chat_id, str(conf.max_warnings - count) + ' MORE WARNING' + (
                 '' if count == 1 else 'S') + ' AND YOU WILL BE KICKED')
@@ -133,7 +134,7 @@ def handle_repost(update):
                             msg = bot.send_message(update.message.chat.id,
                                                    str(
                                                        repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                                   + ' ON ' + result['timestamp'] + '; SIMILARITY INDEX: ' + str(
+                                                   + ' ON ' + str(repost.timestamp) + '; SIMILARITY INDEX: ' + str(
                                                        img_distance) + '\nORIGINAL IMAGE IN REPLY',
                                                    reply_to_message_id=result['message_id'],
                                                    parse_mode=telegram.ParseMode.MARKDOWN,
@@ -142,7 +143,8 @@ def handle_repost(update):
                                 issue_warning(reposter.reposter_id,
                                               update.message.from_user.name,
                                               update.message.message_id,
-                                              update.message.chat.id, 'IMAGE REPOST')
+                                              update.message.chat.id, 'IMAGE REPOST',
+                                              update.message.chat.type)
                             try:
                                 update.message.delete()
                             except telegram.error.BadRequest:
@@ -155,9 +157,10 @@ def handle_repost(update):
                             db.post_cleanup(result['message_id'], update.message.chat.id)
                     else:
                         try:
+                            timestamp = datetime.datetime.now()
                             bot.send_message(update.message.chat.id,
                                              'REPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                             + ' ON ' + result['timestamp'] + '; SIMILARITY INDEX: ' + str(
+                                             + ' ON ' + str(timestamp) + '; SIMILARITY INDEX: ' + str(
                                                  img_distance),
                                              reply_to_message_id=update.message.message_id,
                                              parse_mode=telegram.ParseMode.MARKDOWN,
@@ -168,12 +171,13 @@ def handle_repost(update):
                             if conf.warn_on_repost:
                                 issue_warning(reposter.reposter_id, update.message.from_user.name,
                                               update.message.message_id,
-                                              update.message.chat.id, 'IMAGE REPOST')
+                                              update.message.chat.id, 'IMAGE REPOST',
+                                              update.message.chat.type)
 
                             repost = db.Repost(filename=filename,
                                                file_hash=p_hash,
                                                text=text,
-                                               timestamp=datetime.datetime.now(),
+                                               timestamp=timestamp,
                                                chat_id=update.message.chat.id,
                                                message_id=update.message.message_id,
                                                original_post_id=result['post_id'],
@@ -255,8 +259,7 @@ def handle_repost(update):
                                     msg = bot.send_message(update.message.chat.id,
                                                            str(
                                                                repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                                           + ' ON ' + result[
-                                                               'timestamp'] + '; SIMILARITY INDEX: ' + str(
+                                                           + ' ON ' + repost + '; SIMILARITY INDEX: ' + str(
                                                                img_distance) +
                                                            '\nORIGINAL IMAGE IN REPLY',
                                                            reply_to_message_id=result['message_id'],
@@ -265,7 +268,8 @@ def handle_repost(update):
                                     if conf.warn_on_repost:
                                         issue_warning(reposter.reposter_id, update.message.from_user.name,
                                                       update.message.message_id,
-                                                      update.message.chat.id, 'URL IMAGE REPOST')
+                                                      update.message.chat.id, 'URL IMAGE REPOST',
+                                                      update.message.chat.type)
 
                                     try:
                                         update.message.delete()
@@ -279,10 +283,10 @@ def handle_repost(update):
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
                             else:
                                 try:
+                                    timestamp = datetime.datetime.now()
                                     bot.send_message(update.message.chat.id,
                                                      'REPOST DETECTED FROM ' + update.message.from_user.mention_markdown() + ' ON ' +
-                                                     result[
-                                                         'timestamp'] + '; SIMILARITY INDEX: ' + str(
+                                                     timestamp + '; SIMILARITY INDEX: ' + str(
                                                          img_distance),
                                                      reply_to_message_id=update.message.message_id,
                                                      parse_mode=telegram.ParseMode.MARKDOWN,
@@ -294,7 +298,8 @@ def handle_repost(update):
                                     if conf.warn_on_repost:
                                         issue_warning(reposter.reposter_id, update.message.from_user.name,
                                                       update.message.message_id,
-                                                      update.message.chat.id, 'URL IMAGE REPOST')
+                                                      update.message.chat.id, 'URL IMAGE REPOST',
+                                                      update.message.chat.type)
                                 except telegram.error.BadRequest:
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
 
@@ -302,7 +307,7 @@ def handle_repost(update):
                                                    file_preview_hash=p_hash,
                                                    preview_text=text,
                                                    url=url,
-                                                   timestamp=datetime.datetime.now(),
+                                                   timestamp=timestamp,
                                                    chat_id=update.message.chat.id,
                                                    message_id=update.message.message_id,
                                                    original_post_id=result['post_id'],
@@ -345,7 +350,7 @@ def handle_repost(update):
                                                        str(
                                                            repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
                                                        + ' ON ' +
-                                                       url_same_post.timestamp + '; REASON: URL\n' +
+                                                       repost.timestamp + '; REASON: URL\n' +
                                                        'ORIGINAL IMAGE IN REPLY',
                                                        reply_to_message_id=url_same_post.message_id,
                                                        parse_mode=telegram.ParseMode.MARKDOWN,
@@ -353,7 +358,8 @@ def handle_repost(update):
                                 if conf.warn_on_repost:
                                     issue_warning(reposter.reposter_id, update.message.from_user.name,
                                                   update.message.message_id,
-                                                  update.message.chat.id, 'URL REPOST')
+                                                  update.message.chat.id, 'URL REPOST',
+                                                  update.message.chat.type)
 
                                 try:
                                     update.message.delete()
@@ -366,9 +372,10 @@ def handle_repost(update):
                                 db.post_cleanup(url_same_post.message_id, update.message.chat.id)
                         else:
                             try:
+                                timestamp = datetime.datetime.now()
                                 bot.send_message(update.message.chat.id,
                                                  'REPOST DETECTED FROM ' + update.message.from_user.mention_markdown() + ' ON ' +
-                                                 url_same_post.timestamp + '; REASON: URL',
+                                                 timestamp + '; REASON: URL',
                                                  reply_to_message_id=update.message.message_id,
                                                  parse_mode=telegram.ParseMode.MARKDOWN,
                                                  disable_notification=conf.silent)
@@ -379,10 +386,11 @@ def handle_repost(update):
                                 if conf.warn_on_repost:
                                     issue_warning(reposter.reposter_id, update.message.from_user.name,
                                                   update.message.message_id,
-                                                  update.message.chat.id, 'URL REPOST')
+                                                  update.message.chat.id, 'URL REPOST',
+                                                  update.message.chat.type)
 
                                 repost = db.Repost(url=url,
-                                                   timestamp=datetime.datetime.now(),
+                                                   timestamp=timestamp,
                                                    chat_id=update.message.chat.id,
                                                    message_id=update.message.message_id,
                                                    original_post_id=url_same_post.post_id,
@@ -453,7 +461,8 @@ def cmd_warn(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         issue_warning(poster.poster_id, poster.name, update.message.message_id,
                       update.message.chat.id,
-                      'UNAUTHORIZED WARNING ATTEMPT')
+                      'UNAUTHORIZED WARNING ATTEMPT',
+                      update.message.chat.type)
         return
 
     try:
@@ -470,7 +479,8 @@ def cmd_warn(args, update):
         issue_warning(poster.poster_id,
                       update.message.reply_to_message.from_user.name,
                       update.message.reply_to_message.message_id,
-                      update.message.chat.id, reason)
+                      update.message.chat.id, reason,
+                      update.message.chat.type)
     except AttributeError:
         bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT',
                          disable_notification=conf.silent)
@@ -632,7 +642,8 @@ def cmd_no_repost(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
                       update.message.chat.id,
-                      'UNAUTHORIZED NO-REPOST ATTEMPT')
+                      'UNAUTHORIZED NO-REPOST ATTEMPT',
+                      update.message.chat.type)
         return
 
     try:
@@ -686,7 +697,8 @@ def cmd_forgive(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
                       update.message.chat.id,
-                      'UNAUTHORIZED FORGIVE ATTEMPT')
+                      'UNAUTHORIZED FORGIVE ATTEMPT',
+                      update.message.chat.type)
         return
 
     try:
@@ -842,7 +854,7 @@ def main(pill):
 if __name__ == '__main__':
     bot = telegram.Bot(token=conf.token)
     stop_pill = threading.Event()
-    bot_thread = threading.Thread(target=main, name='bot_thread', args=(stop_pill, ))
+    bot_thread = threading.Thread(target=main, name='bot_thread', args=(stop_pill,))
     bot_thread.start()
     line_input = ''
     while line_input != 'exit':
