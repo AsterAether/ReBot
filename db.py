@@ -219,8 +219,13 @@ def post_cleanup(message_id, chat_id):
 def forgive_repost(repost):
     global session
     session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()
-    session.query(Warning).filter(Warning.message_id == repost.message_id).filter(
-        Warning.chat_id == repost.chat_id).delete()
+    # session.query(Warning).filter(Warning.message_id == repost.message_id).filter(
+    #     Warning.chat_id == repost.chat_id).delete()
+
+
+def forgive_warning(warning):
+    global session
+    session.query(Warning).filter(Warning.warning_id == warning.warning_id).delete()
 
 
 def get_repost(repost_id):
@@ -228,9 +233,14 @@ def get_repost(repost_id):
     return session.query(Repost).filter(Repost.repost_id == repost_id).first()
 
 
-def get_post_per_message(message_id):
+def get_warning(warning_id):
     global session
-    return session.query(Post).filter(Post.message_id == message_id).first()
+    return session.query(Warning).filter(Warning.warning_id == warning_id).first()
+
+
+def get_post_per_message(message_id, chat_id):
+    global session
+    return session.query(Post).filter(Post.message_id == message_id).filter(Post.chat_id == chat_id).first()
 
 
 def find_user(name):

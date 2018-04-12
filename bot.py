@@ -44,7 +44,7 @@ def check_is_overlord(user_id):
     return user_id in conf.bot_overlords
 
 
-def issue_warning(poster_id, message_id, chat_id, reason):
+def issue_warning(poster_id, poster_name, message_id, chat_id, reason):
     if poster_id in conf.bot_overlords:
         return 0
 
@@ -56,7 +56,23 @@ def issue_warning(poster_id, message_id, chat_id, reason):
 
     db.save(warning)
 
-    return db.get_warning_count(poster_id, chat_id)
+    count = db.get_warning_count(poster_id, chat_id)
+
+    poster = db.get_poster(poster_id, poster_name)
+
+    try:
+        bot.send_message(chat_id,
+                         str(warning.warning_id) +
+                         '#\nYOU [' + poster.name +
+                         '] ARE WARNED\nREASON:' + reason + '\nWARNING NUMBER ' + str(count),
+                         disable_notification=conf.silent,
+                         reply_to_message_id=message_id)
+    except telegram.error.BadRequest:
+        bot.send_message(chat_id,
+                         str(warning.warning_id) +
+                         '#\nYOU [' + poster.name +
+                         '] ARE WARNED\nREASON:' + reason + '\nWARNING NUMBER ' + str(count),
+                         disable_notification=conf.silent)
 
 
 def handle_repost(update):
@@ -99,9 +115,6 @@ def handle_repost(update):
 
                     reposter = db.get_reposter(update.message.from_user.id,
                                                update.message.from_user.name)
-                    count = issue_warning(reposter.reposter_id,
-                                          update.message.message_id,
-                                          update.message.chat.id, 'IMAGE REPOST')
 
                     if conf.delete_reposts and update.message.chat.type == 'group':
                         repost = db.Repost(filename=filename,
@@ -120,11 +133,15 @@ def handle_repost(update):
                             msg = bot.send_message(update.message.chat.id,
                                                    str(
                                                        repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown() + '; SIMILARITY INDEX: ' + str(
-                                                       img_distance) + '\nWARNING NUMBER ' + str(
-                                                       count) + ' ISSUED' + '\nORIGINAL IMAGE IN REPLY',
+                                                       img_distance) + '\nORIGINAL IMAGE IN REPLY',
                                                    reply_to_message_id=result['message_id'],
                                                    parse_mode=telegram.ParseMode.MARKDOWN,
                                                    disable_notification=conf.silent)
+
+                            issue_warning(reposter.reposter_id,
+                                          update.message.from_user.name,
+                                          update.message.message_id,
+                                          update.message.chat.id, 'IMAGE REPOST')
                             try:
                                 update.message.delete()
                             except telegram.error.BadRequest:
@@ -139,12 +156,16 @@ def handle_repost(update):
                         try:
                             bot.send_message(update.message.chat.id,
                                              'REPOST DETECTED; SIMILARITY INDEX: ' + str(
-                                                 img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
+                                                 img_distance),
                                              reply_to_message_id=update.message.message_id,
                                              disable_notification=conf.silent)
                             bot.send_message(update.message.chat.id,
                                              'ORIGINAL IMAGE',
                                              reply_to_message_id=result['message_id'], disable_notification=conf.silent)
+
+                            issue_warning(reposter.reposter_id, update.message.from_user.name,
+                                          update.message.message_id,
+                                          update.message.chat.id, 'IMAGE REPOST')
 
                             repost = db.Repost(filename=filename,
                                                file_hash=p_hash,
@@ -213,9 +234,6 @@ def handle_repost(update):
 
                             reposter = db.get_reposter(update.message.from_user.id,
                                                        update.message.from_user.name)
-                            count = issue_warning(reposter.reposter_id,
-                                                  update.message.message_id,
-                                                  update.message.chat.id, 'URL IMAGE REPOST')
 
                             if conf.delete_reposts and update.message.chat.type == 'group':
 
@@ -235,12 +253,15 @@ def handle_repost(update):
                                                            str(
                                                                repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
                                                            + '; SIMILARITY INDEX: ' + str(
-                                                               img_distance) + '\nWARNING NUMBER ' + str(
-                                                               count) + ' ISSUED\n' +
-                                                           'ORIGINAL IMAGE IN REPLY',
+                                                               img_distance) +
+                                                           '\nORIGINAL IMAGE IN REPLY',
                                                            reply_to_message_id=result['message_id'],
                                                            parse_mode=telegram.ParseMode.MARKDOWN,
                                                            disable_notification=conf.silent)
+
+                                    issue_warning(reposter.reposter_id, update.message.from_user.name,
+                                                  update.message.message_id,
+                                                  update.message.chat.id, 'URL IMAGE REPOST')
 
                                     try:
                                         update.message.delete()
@@ -256,13 +277,17 @@ def handle_repost(update):
                                 try:
                                     bot.send_message(update.message.chat.id,
                                                      'REPOST DETECTED; SIMILARITY INDEX: ' + str(
-                                                         img_distance) + '\nWARNING NUMBER ' + str(count) + ' ISSUED',
+                                                         img_distance),
                                                      reply_to_message_id=update.message.message_id,
                                                      disable_notification=conf.silent)
                                     bot.send_message(update.message.chat.id,
                                                      'ORIGINAL IMAGE',
                                                      reply_to_message_id=result['message_id'],
                                                      disable_notification=conf.silent)
+
+                                    issue_warning(reposter.reposter_id, update.message.from_user.name,
+                                                  update.message.message_id,
+                                                  update.message.chat.id, 'URL IMAGE REPOST')
                                 except telegram.error.BadRequest:
                                     db.post_cleanup(result['message_id'], update.message.chat.id)
 
@@ -297,9 +322,6 @@ def handle_repost(update):
                     if url_same_post:
                         reposter = db.get_reposter(update.message.from_user.id,
                                                    update.message.from_user.name)
-                        count = issue_warning(reposter.reposter_id,
-                                              update.message.message_id,
-                                              update.message.chat.id, 'URL REPOST')
 
                         if conf.delete_reposts and update.message.chat.type == 'group':
 
@@ -315,11 +337,14 @@ def handle_repost(update):
                                 msg = bot.send_message(update.message.chat.id,
                                                        str(
                                                            repost.repost_id) + ';\nREPOST DETECTED FROM ' + update.message.from_user.mention_markdown()
-                                                       + '; REASON: URL\nWARNING NUMBER ' + str(count) + ' ISSUED\n' +
+                                                       + '; REASON: URL\n' +
                                                        'ORIGINAL IMAGE IN REPLY',
                                                        reply_to_message_id=url_same_post.message_id,
                                                        parse_mode=telegram.ParseMode.MARKDOWN,
                                                        disable_notification=conf.silent)
+                                issue_warning(reposter.reposter_id, update.message.from_user.name,
+                                              update.message.message_id,
+                                              update.message.chat.id, 'URL REPOST')
 
                                 try:
                                     update.message.delete()
@@ -333,14 +358,18 @@ def handle_repost(update):
                         else:
                             try:
                                 bot.send_message(update.message.chat.id,
-                                                 'REPOST DETECTED; REASON: URL' + '\nWARNING NUMBER ' + str(
-                                                     count) + ' ISSUED',
+                                                 'REPOST DETECTED; REASON: URL',
                                                  reply_to_message_id=update.message.message_id,
                                                  disable_notification=conf.silent)
                                 bot.send_message(update.message.chat.id,
                                                  'ORIGINAL POST',
                                                  reply_to_message_id=url_same_post.message_id,
                                                  disable_notification=conf.silent)
+
+                                issue_warning(reposter.reposter_id, update.message.from_user.name,
+                                              update.message.message_id,
+                                              update.message.chat.id, 'URL REPOST')
+
                                 repost = db.Repost(url=url,
                                                    timestamp=datetime.datetime.now(),
                                                    chat_id=update.message.chat.id,
@@ -375,11 +404,10 @@ def cmd_start(args, update):
 def cmd_warn(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.reply_to_message.message_id,
-                              update.message.chat.id,
-                              'UNAUTHORIZED WARNING ATTEMPT')
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
-                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED', disable_notification=conf.silent)
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        issue_warning(poster.poster_id, poster.name, update.message.message_id,
+                      update.message.chat.id,
+                      'UNAUTHORIZED WARNING ATTEMPT')
         return
 
     try:
@@ -393,14 +421,10 @@ def cmd_warn(args, update):
             bot.send_message(update.message.chat.id, 'PLEASE DON\'T TRY TO WARN ME', disable_notification=conf.silent)
             return
 
-        count = issue_warning(poster.poster_id,
-                              update.message.reply_to_message.message_id,
-                              update.message.chat.id, reason)
-
-        bot.send_message(update.message.chat.id,
-                         'YOU [' + update.message.reply_to_message.from_user.mention_markdown() +
-                         '] ARE WARNED; WARNING NUMBER ' + str(count),
-                         parse_mode=telegram.ParseMode.MARKDOWN, disable_notification=conf.silent)
+        issue_warning(poster.poster_id,
+                      update.message.reply_to_message.from_user.name,
+                      update.message.reply_to_message.message_id,
+                      update.message.chat.id, reason)
     except AttributeError:
         bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT',
                          disable_notification=conf.silent)
@@ -437,16 +461,20 @@ def cmd_list_warnings(args, update):
 
         if len(warnings) == 0:
             bot.send_message(update.message.chat.id,
-                             'NO WARNINGS FOR USER ' + poster.name)
+                             'NO WARNINGS FOR USER ' + poster.name, disable_notification=conf.silent)
             return
 
         i = 1
         for warning in warnings:
-            bot.send_message(update.message.chat.id,
-                             'WARNING ' + str(
-                                 i) + ' OF ' + poster.name + '\nREASON: ' + warning.reason,
-                             parse_mode=telegram.ParseMode.MARKDOWN,
-                             reply_to_message_id=warning.message_id, disable_notification=conf.silent)
+            msg_text = str(warning.warning_id) + '#\nWARNING ' + str(
+                i) + ' OF ' + poster.name + '\nREASON: ' + warning.reason
+            try:
+                bot.send_message(update.message.chat.id,
+                                 msg_text,
+                                 reply_to_message_id=warning.message_id, disable_notification=conf.silent)
+            except telegram.error.BadRequest:
+                bot.send_message(update.message.chat.id,
+                                 msg_text + '\nORIGINAL MESSAGE DELETED', disable_notification=conf.silent)
             i += 1
 
     except AttributeError as e:
@@ -538,7 +566,7 @@ def cmd_get_text(args, update):
     try:
         post_info = update.message.reply_to_message
 
-        post = db.get_post_per_message(post_info.message_id)
+        post = db.get_post_per_message(post_info.message_id, update.message.chat.id)
         if post:
             bot.send_message(update.message.chat.id,
                              post.text,
@@ -552,14 +580,13 @@ def cmd_get_text(args, update):
                          'YOU NEED TO REPLY TO A POST TO GET ITS TEXT', disable_notification=conf.silent)
 
 
-def cmd_forgive(args, update):
+def cmd_no_repost(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.message_id,
-                              update.message.chat.id,
-                              'UNAUTHORIZED FORGIVE ATTEMPT')
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
-                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED', disable_notification=conf.silent)
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                      update.message.chat.id,
+                      'UNAUTHORIZED NO-REPOST ATTEMPT')
         return
 
     try:
@@ -607,6 +634,51 @@ def cmd_forgive(args, update):
                          disable_notification=conf.silent)
 
 
+def cmd_forgive(args, update):
+    if not check_is_overlord(update.message.from_user.id):
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+        issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                      update.message.chat.id,
+                      'UNAUTHORIZED FORGIVE ATTEMPT')
+        return
+
+    try:
+        warn_info = update.message.reply_to_message
+
+        if warn_info.from_user.id != conf.bot_id:
+            bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A WARNING TO FORGIVE IT',
+                             disable_notification=conf.silent)
+            return
+
+        warning_id = int(warn_info.text.split('#')[0])
+
+        warning = db.get_warning(warning_id)
+
+        if warning is None:
+            bot.send_message(update.message.chat.id, 'NO WARNING FOUND; MAY BE FORGIVEN ALREADY',
+                             disable_notification=conf.silent)
+            return
+
+        db.forgive_warning(warning)
+
+        poster = db.get_poster(warning.poster_id, None)
+
+        msg_text = 'WARNING OF USER ' + poster.name + ' ON ' + str(warning.timestamp) + ' FORGIVEN'
+        try:
+            bot.send_message(update.message.chat.id,
+                             msg_text + '\nORIGINAL MESSAGE IN REPLY',
+                             reply_to_message_id=warning.message_id, disable_notification=conf.silent)
+        except telegram.error.BadRequest:
+            bot.send_message(update.message.chat.id,
+                             msg_text + '\nORIGINAL MESSAGE DELETED', disable_notification=conf.silent)
+    except (AttributeError, ValueError) as e:
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A WARNING TO FORGIVE IT',
+                         disable_notification=conf.silent)
+        print('FORGIVE: ' + str(e))
+
+
 def cmd_del(args, update):
     if not check_is_overlord(update.message.from_user.id):
         # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
@@ -640,6 +712,7 @@ commands = {'start': cmd_start,
             'getrepost': cmd_get_repost,
             'randompost': cmd_random_post,
             'gettext': cmd_get_text,
+            'norepost': cmd_no_repost,
             'forgive': cmd_forgive,
             'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                           'COMMANDS: ' + ', '.join(
