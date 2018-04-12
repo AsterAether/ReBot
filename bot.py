@@ -432,8 +432,15 @@ def cmd_list_warnings(args, update):
                              disable_notification=conf.silent)
             return
 
+        warnings = db.get_warnings(poster.poster_id, update.message.chat.id)
+
+        if len(warnings) == 0:
+            bot.send_message(update.message.chat.id,
+                             'NO WARNINGS FOR USER ' + update.message.reply_to_message.from_user.name)
+            return
+
         i = 1
-        for warning in db.get_warnings(poster.poster_id, update.message.chat.id):
+        for warning in warnings:
             bot.send_message(update.message.chat.id,
                              'WARNING ' + str(
                                  i) + ' OF ' + update.message.reply_to_message.from_user.mention_markdown() + '\nREASON: ' + warning.reason,
