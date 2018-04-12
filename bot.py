@@ -535,8 +535,12 @@ def cmd_get_text(args, update):
 
 def cmd_forgive(args, update):
     if update.message.from_user.name not in conf.bot_overlords:
-        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
-                         disable_notification=conf.silent)
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        count = issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                              update.message.chat.id,
+                              'UNAUTHORIZED FORGIVE ATTEMPT')
+        bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
+                         + '\nWARNING NUMBER ' + str(count) + ' ISSUED', disable_notification=conf.silent)
         return
 
     try:
@@ -584,6 +588,51 @@ def cmd_forgive(args, update):
                          disable_notification=conf.silent)
 
 
+def cmd_del(args, update):
+    if update.message.from_user.name not in conf.bot_overlords:
+        # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+        #                  disable_notification=conf.silent)
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        print('USER ' + poster.name + ' TRIED TO CALL DEL')
+        return
+
+    try:
+        info = update.message.reply_to_message
+        try:
+            info.delete()
+        except telegram.error.BadRequest:
+            print('ERROR ON DEL: MESSAGE ALREADY DELETED')
+        except AttributeError:
+            print('ERROR ON DEL: NO MESSAGE IN REPLY TO DELETE')
+
+        try:
+            update.message.delete()
+        except telegram.error.BadRequest:
+            print('ERROR ON DEL: COMMAND MESSAGE DELETED')
+    except (AttributeError, ValueError) as e:
+        print('ERROR ON DEL' + str(e))
+
+
+commands = {'start': cmd_start,
+            'warn': cmd_warn,
+            'mywarnings': cmd_my_warnings,
+            'listwarnings': cmd_list_warnings,
+            'poststats': cmd_post_stats,
+            'getrepost': cmd_get_repost,
+            'randompost': cmd_random_post,
+            'gettext': cmd_get_text,
+            'forgive': cmd_forgive,
+            'help': lambda args, update: bot.send_message(update.message.chat.id,
+                                                          'COMMANDS: ' + ', '.join(
+                                                              ['/' + c for c in commands.keys()]),
+                                                          disable_notification=conf.silent)}
+
+# Admin CMDs (silent):
+admin_commands = {
+    'del': cmd_del
+}
+
+
 def handle_commands(update):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
@@ -592,26 +641,16 @@ def handle_commands(update):
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
-
-        commands = {'start': cmd_start,
-                    'warn': cmd_warn,
-                    'mywarnings': cmd_my_warnings,
-                    'listwarnings': cmd_list_warnings,
-                    'poststats': cmd_post_stats,
-                    'getrepost': cmd_get_repost,
-                    'randompost': cmd_random_post,
-                    'gettext': cmd_get_text,
-                    'forgive': cmd_forgive,
-                    'help': lambda args, update: bot.send_message(update.message.chat.id,
-                                                                  'COMMANDS: ' + ', '.join(
-                                                                      ['/' + c for c in commands.keys()]),
-                                                                  disable_notification=conf.silent)}
-
         try:
             commands[cmd](args, update)
         except KeyError:
-            bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd,
-                             disable_notification=conf.silent)
+            if cmd not in admin_commands or (update.message.from_user.name not in conf.bot_overlords):
+                bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd,
+                                 disable_notification=conf.silent)
+        try:
+            admin_commands[cmd](args, update)
+        except KeyError:
+            pass
 
 
 if __name__ == '__main__':
