@@ -71,6 +71,8 @@ def handle_repost(update):
             filename = file.file_id + '.jpg'
             file.download(custom_path='files/' + filename)
 
+            img.image_crop(filename)
+
             p_hash = img.image_perception_hash(filename)
 
             text = img.image_to_string(filename)
@@ -180,6 +182,9 @@ def handle_repost(update):
                 filename = str(update.message.chat.id) + '_' + str(update.message.message_id)
 
                 filename = img.handle_url_image(url, filename)
+
+                img.image_crop(filename)
+
                 if filename:
 
                     p_hash = img.image_perception_hash(filename)
