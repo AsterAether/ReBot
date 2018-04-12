@@ -28,6 +28,8 @@ def image_perception_hash(filename):
 
 
 def image_crop(filename):
+    filename = 'files/' + filename
+
     # Load the image in black and white (0 - b/w, 1 - color).
     img = cv2.imread(filename, 0)
 
@@ -61,9 +63,16 @@ def image_crop(filename):
 def compare_image_ssim(filename1, filename2):
     image1 = cv2.imread('files/' + filename1)
     image2 = cv2.imread('files/' + filename2)
-    height, width = image1.shape[:2]
-    image2 = cv2.resize(image2, (width, height))
-    return ssim(image1, image2, multichannel=True)
+    height1, width1 = image1.shape[:2]
+    height2, width2 = image1.shape[:2]
+    size_1 = (height1 * width1, image2, image1, height1, width1)
+    size_2 = (height2 * width2, image1, image2, height2, width2)
+
+    size = min([size_1, size_2], key=lambda s: s[0])
+
+    img = cv2.resize(size[1], (size[4], size[3]))
+    cv2.imwrite('res.jpg', img)
+    return ssim(size[2], img, multichannel=True)
 
 
 def image_to_string(filename):
@@ -116,4 +125,4 @@ def get_image_from_response(response):
 
 
 if __name__ == '__main__':
-    image_crop('test.jpg')
+    print(compare_image_ssim('img1.jpg', 'img2.jpg'))
