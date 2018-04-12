@@ -375,7 +375,7 @@ def cmd_start(args, update):
 def cmd_warn(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.from_user.name,
+        count = issue_warning(poster.poster_id, update.message.reply_to_message.message_id,
                               update.message.chat.id,
                               'UNAUTHORIZED WARNING ATTEMPT')
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
@@ -393,9 +393,9 @@ def cmd_warn(args, update):
             bot.send_message(update.message.chat.id, 'PLEASE DON\'T TRY TO WARN ME', disable_notification=conf.silent)
             return
 
-        count = issue_warning(poster.poster_id, update.message.from_user.name,
+        count = issue_warning(poster.poster_id,
                               update.message.reply_to_message.message_id,
-                              reason)
+                              update.message.chat.id, reason)
 
         bot.send_message(update.message.chat.id,
                          'YOU [' + update.message.reply_to_message.from_user.mention_markdown() +
@@ -546,7 +546,7 @@ def cmd_get_text(args, update):
 def cmd_forgive(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        count = issue_warning(poster.poster_id, update.message.from_user.name,
+        count = issue_warning(poster.poster_id, update.message.message_id,
                               update.message.chat.id,
                               'UNAUTHORIZED FORGIVE ATTEMPT')
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS'
