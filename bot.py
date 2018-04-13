@@ -1,17 +1,20 @@
-import db
-import telegram
-import conf
-import time
+import base64
+import binascii
+import datetime
 import os
 import sys
 import threading
-import datetime
-import binascii
-import schedule
-import base64
-from bs4 import BeautifulSoup
-import requests
+import time
+import traceback
 from difflib import SequenceMatcher
+
+import requests
+import schedule
+import telegram
+from bs4 import BeautifulSoup
+
+import conf
+import db
 
 sys.path.append(conf.path_add)
 import img
@@ -35,7 +38,19 @@ def check_is_overlord(user_id):
     return user_id in conf.bot_overlords
 
 
-def issue_warning(poster_id, poster_name, message_id, chat_id, reason, chat_type):
+def get_text(message):
+    msg_text = None
+
+    if message.text:
+        msg_text = message.text
+
+    if message.caption:
+        msg_text = message.caption
+
+    return msg_text
+
+
+def issue_warning(poster_id, poster_name, message_id, chat_id, text, photo, reason, chat_type):
     if poster_id in conf.bot_overlords:
         return 0
 
@@ -43,7 +58,9 @@ def issue_warning(poster_id, poster_name, message_id, chat_id, reason, chat_type
                          chat_id=chat_id,
                          timestamp=datetime.datetime.now(),
                          poster_id=poster_id,
-                         reason=reason)
+                         reason=reason,
+                         photo_filename=photo,
+                         text=text)
 
     db.save(warning)
 
@@ -57,15 +74,22 @@ def issue_warning(poster_id, poster_name, message_id, chat_id, reason, chat_type
         bot.send_message(chat_id,
                          str(warning.warning_id) +
                          '#W\nYOU [' + poster.name +
-                         '] ARE WARNED\nREASON:' + reason + '\nWARNING NUMBER ' + str(count),
+                         '] ARE WARNED\nREASON: ' + reason + '\nWARNING NUMBER ' + str(count),
                          disable_notification=conf.silent,
                          reply_to_message_id=message_id)
     except telegram.error.BadRequest:
-        bot.send_message(chat_id,
-                         str(warning.warning_id) +
-                         '#W\nYOU [' + poster.name +
-                         '] ARE WARNED\nREASON: ' + reason + '\nWARNING NUMBER ' + str(count),
-                         disable_notification=conf.silent)
+        msg_text = str(
+            warning.warning_id) + '#W\nYOU [' + poster.name + '] ARE WARNED\nREASON: ' + reason + '\nWARNING NUMBER ' + str(
+            count) + '\nORIGINAL MESSAGE: "' + str(text) + '"'
+        if photo:
+            bot.send_photo(chat_id,
+                           photo=open('files/' + photo, 'rb'),
+                           caption=msg_text,
+                           disable_notification=conf.silent)
+        else:
+            bot.send_message(chat_id,
+                             msg_text,
+                             disable_notification=conf.silent)
 
     if chat_type == 'group':
         if conf.max_warnings - conf.kick_warn_threshold < count - min(conf.props_max_minus,
@@ -78,18 +102,23 @@ def issue_warning(poster_id, poster_name, message_id, chat_id, reason, chat_type
             time.sleep(2)
             bot.send_message(chat_id, 'OH WAIT; IT\'S ALREADY TIME TO GO')
             time.sleep(1)
-            bot.kick_chat_member(chat_id, poster_id)
-            ban = db.Ban(chat_id=chat_id, poster_id=poster_id, timestamp=datetime.datetime.now())
-            db.save(ban)
+            try:
+                bot.kick_chat_member(chat_id, poster_id)
+                ban = db.Ban(chat_id=chat_id, poster_id=poster_id, timestamp=datetime.datetime.now())
+                db.save(ban)
+            except telegram.error.BadRequest:
+                pass
             db.forgive_warnings_for_poster(poster_id)
 
 
-def issue_props(poster_id, poster_name, message_id, chat_id, reason):
+def issue_props(poster_id, poster_name, message_id, chat_id, text, photo, reason):
     props = db.Props(message_id=message_id,
                      chat_id=chat_id,
                      timestamp=datetime.datetime.now(),
                      poster_id=poster_id,
-                     reason=reason)
+                     reason=reason,
+                     photo_filename=photo,
+                     text=text)
 
     db.save(props)
 
@@ -105,28 +134,49 @@ def issue_props(poster_id, poster_name, message_id, chat_id, reason):
                          disable_notification=conf.silent,
                          reply_to_message_id=message_id)
     except telegram.error.BadRequest:
-        bot.send_message(chat_id,
-                         str(props.props_id) +
-                         '#P\nPROPS TO [' + poster.name +
-                         ']\nREASON:' + reason + '\nWARNING NUMBER ' + str(count),
-                         disable_notification=conf.silent)
+        msg_text = str(
+            props.props_id) + '#P\nPROPS TO [' + poster.name + ']\nREASON:' + reason + '\nWARNING NUMBER ' + str(
+            count) + '\nORIGINAL MESSAGE: "' + str(text) + '"'
+        if photo:
+            bot.send_photo(chat_id,
+                           photo=open('files/' + photo, 'rb'),
+                           caption=msg_text,
+                           disable_notification=conf.silent)
+        else:
+            bot.send_message(chat_id,
+                             msg_text,
+                             disable_notification=conf.silent)
 
 
 def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, original_message_id, post_type_id,
                  sim_index, reposter_id,
                  update, delete,
-                 repost_reason, url_repost=False):
+                 repost_reason, msg_text, url, url_repost=False):
     if delete:
-        repost = db.Repost(filename=filename,
-                           file_hash=p_hash,
-                           text=text,
-                           timestamp=timestamp,
-                           chat_id=chat_id,
-                           original_post_id=original_post_id,
-                           post_type_id=post_type_id,
-                           similarity_index=sim_index,
-                           reposter_id=reposter_id
-                           )
+        repost = None
+        if post_type_id == 1:
+            repost = db.Repost(filename=filename,
+                               file_hash=p_hash,
+                               text=text,
+                               timestamp=timestamp,
+                               chat_id=chat_id,
+                               original_post_id=original_post_id,
+                               post_type_id=post_type_id,
+                               similarity_index=sim_index,
+                               reposter_id=reposter_id
+                               )
+        elif post_type_id == 2:
+            repost = db.Repost(filename_preview=filename,
+                               file_preview_hash=p_hash,
+                               preview_text=text,
+                               url=url,
+                               timestamp=timestamp,
+                               chat_id=chat_id,
+                               original_post_id=original_post_id,
+                               post_type_id=post_type_id,
+                               similarity_index=sim_index,
+                               reposter_id=reposter_id
+                               )
         db.save(repost)
 
         try:
@@ -150,10 +200,11 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                                    reply_to_message_id=original_message_id,
                                    parse_mode=telegram.ParseMode.MARKDOWN,
                                    disable_notification=conf.silent)
+
             if conf.warn_on_repost:
                 issue_warning(reposter_id,
                               update.message.from_user.name,
-                              update.message.message_id,
+                              update.message.message_id, msg_text, filename,
                               chat_id, repost_reason,
                               update.message.chat.type)
             try:
@@ -168,7 +219,34 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
             db.post_cleanup(original_post_id, update.message.chat.id)
     else:
         try:
-            text = '\nREPOST DETECTED FROM ' + \
+            repost = None
+            if post_type_id == 1:
+                repost = db.Repost(filename=filename,
+                                   file_hash=p_hash,
+                                   text=text,
+                                   timestamp=timestamp,
+                                   chat_id=chat_id,
+                                   original_post_id=original_post_id,
+                                   post_type_id=post_type_id,
+                                   similarity_index=sim_index,
+                                   reposter_id=reposter_id
+                                   )
+            elif post_type_id == 2:
+                repost = db.Repost(filename_preview=filename,
+                                   file_preview_hash=p_hash,
+                                   preview_text=text,
+                                   url=url,
+                                   timestamp=timestamp,
+                                   chat_id=chat_id,
+                                   original_post_id=original_post_id,
+                                   post_type_id=post_type_id,
+                                   similarity_index=sim_index,
+                                   reposter_id=reposter_id
+                                   )
+
+            db.save(repost)
+
+            text = str(repost.repost_id) + '#R\nREPOST DETECTED FROM ' + \
                    update.message.from_user.mention_markdown() + ' ON ' + \
                    str(timestamp) + ';'
 
@@ -186,6 +264,8 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                                  disable_notification=conf.silent)
             except telegram.error.BadRequest:
                 print('REPOST ALREADY DELETED')
+                repost.message_id = None
+                db.save(repost)
                 return True
 
             text = 'ORIGINAL IMAGE' if not url_repost else 'ORIGINAL MESSAGE'
@@ -194,21 +274,10 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                              reply_to_message_id=original_message_id, disable_notification=conf.silent)
             if conf.warn_on_repost:
                 issue_warning(reposter_id, update.message.from_user.name,
-                              update.message.message_id,
+                              update.message.message_id, msg_text, filename,
                               chat_id, repost_reason,
                               update.message.chat.type)
 
-            repost = db.Repost(filename=filename,
-                               file_hash=p_hash,
-                               text=text,
-                               timestamp=timestamp,
-                               chat_id=update.message.chat.id,
-                               message_id=update.message.message_id,
-                               original_post_id=original_post_id,
-                               post_type_id=post_type_id,
-                               similarity_index=sim_index,
-                               reposter_id=reposter_id
-                               )
             db.save(repost)
         except telegram.error.BadRequest:
             db.post_cleanup(original_post_id, update.message.chat.id)
@@ -260,7 +329,7 @@ def handle_repost(update):
 
                     issue_repost(filename, p_hash, text, datetime.datetime.now(), update.message.chat.id,
                                  result['post_id'], result['message_id'], 1, img_distance, reposter.reposter_id,
-                                 update, delete_repost, 'IMAGE REPOST')
+                                 update, delete_repost, 'IMAGE REPOST', get_text(update.message), None)
                     break
             if not is_repost:
                 post = db.Post(filename=filename,
@@ -318,7 +387,7 @@ def handle_repost(update):
                             issue_repost(filename, p_hash, text, datetime.datetime.now(), update.message.chat.id,
                                          result['post_id'], result['message_id'], 2, img_distance,
                                          reposter.reposter_id,
-                                         update, delete_repost, 'URL IMAGE REPOST')
+                                         update, delete_repost, 'URL IMAGE REPOST', get_text(update.message), url)
                             break
                     if not is_repost:
                         post = db.Post(filename_preview=filename,
@@ -343,7 +412,7 @@ def handle_repost(update):
                         issue_repost(filename, None, text, datetime.datetime.now(), update.message.chat.id,
                                      url_same_post.post_id, url_same_post.message_id, 2, None,
                                      reposter.reposter_id,
-                                     update, delete_repost, 'URL REPOST', True)
+                                     update, delete_repost, 'URL REPOST', get_text(update.message), url, True)
 
 
 def handle_import(update):
@@ -393,9 +462,10 @@ def cmd_warn(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
+
         if conf.warn_on_admin:
             issue_warning(poster.poster_id, poster.name, update.message.message_id,
-                          update.message.chat.id,
+                          update.message.chat.id, get_text(update.message), None,
                           'UNAUTHORIZED WARNING ATTEMPT',
                           update.message.chat.type)
         return
@@ -411,10 +481,22 @@ def cmd_warn(args, update):
             bot.send_message(update.message.chat.id, 'OUCH; THAT HURT MY FEELINGS', disable_notification=conf.silent)
             return
 
+        filename = None
+
+        if update.message.reply_to_message.photo:
+            photos = update.message.reply_to_message.photo
+            photo = max(photos, key=lambda p: p.file_size)
+            file = photo.get_file()
+
+            filename = file.file_id + '.jpg'
+
+            if not os.path.exists('files/' + filename):
+                file.download(custom_path='files/' + filename)
+
         issue_warning(poster.poster_id,
                       update.message.reply_to_message.from_user.name,
                       update.message.reply_to_message.message_id,
-                      update.message.chat.id, reason,
+                      update.message.chat.id, get_text(update.message.reply_to_message), filename, reason,
                       update.message.chat.type)
     except AttributeError:
         bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO WARN IT',
@@ -427,7 +509,7 @@ def cmd_props(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         if conf.warn_on_admin:
             issue_warning(poster.poster_id, poster.name, update.message.message_id,
-                          update.message.chat.id,
+                          update.message.chat.id, get_text(update.message), None,
                           'UNAUTHORIZED PROPS ATTEMPT',
                           update.message.chat.type)
         return
@@ -443,10 +525,21 @@ def cmd_props(args, update):
             bot.send_message(update.message.chat.id, 'I ALREADY KNOW I\'M GOOD', disable_notification=conf.silent)
             return
 
+        filename = None
+        if update.message.reply_to_message.photo:
+            photos = update.message.reply_to_message.photo
+            photo = max(photos, key=lambda p: p.file_size)
+            file = photo.get_file()
+
+            filename = file.file_id + '.jpg'
+
+            if not os.path.exists('files/' + filename):
+                file.download(custom_path='files/' + filename)
+
         issue_props(poster.poster_id,
                     update.message.reply_to_message.from_user.name,
                     update.message.reply_to_message.message_id,
-                    update.message.chat.id, reason)
+                    update.message.chat.id, get_text(update.message.reply_to_message), filename, reason)
     except AttributeError:
         bot.send_message(update.message.chat.id, 'YOU NEED TO REPLY TO A MESSAGE TO GIVE PROPS TO IT',
                          disable_notification=conf.silent)
@@ -506,8 +599,13 @@ def cmd_list_props(args, update):
                                  msg_text,
                                  reply_to_message_id=prop.message_id, disable_notification=conf.silent)
             except telegram.error.BadRequest:
-                bot.send_message(update.message.chat.id,
-                                 msg_text + '\nORIGINAL MESSAGE DELETED', disable_notification=conf.silent)
+                if prop.photo_filename:
+                    bot.send_photo(update.message.chat.id,
+                                   open('files/' + prop.photo_filename, 'rb'), caption=msg_text + '\nORIGINAL MESSAGE: ' + str(prop.text),
+                                   disable_notification=conf.silent)
+                else:
+                    bot.send_message(update.message.chat.id, msg_text + '\nORIGINAL MESSAGE: "' + str(prop.text) + '"',
+                                     disable_notification=conf.silent)
             i += 1
 
     except AttributeError as e:
@@ -549,8 +647,14 @@ def cmd_list_warnings(args, update):
                                  msg_text,
                                  reply_to_message_id=warning.message_id, disable_notification=conf.silent)
             except telegram.error.BadRequest:
-                bot.send_message(update.message.chat.id,
-                                 msg_text + '\nORIGINAL MESSAGE DELETED', disable_notification=conf.silent)
+                if warning.photo_filename:
+                    bot.send_photo(update.message.chat.id,
+                                   open('files/' + warning.photo_filename, 'rb'),
+                                   caption=msg_text + '\nORIGINAL MESSAGE: "' + str(warning.text) + '"',
+                                   disable_notification=conf.silent)
+                else:
+                    bot.send_message(update.message.chat.id, msg_text + '\nORIGINAL MESSAGE: "' + str(warning.text) + '"',
+                                     disable_notification=conf.silent)
             i += 1
 
     except AttributeError as e:
@@ -663,6 +767,7 @@ def cmd_no_repost(args, update):
         if conf.warn_on_admin:
             issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
                           update.message.chat.id,
+                          get_text(update.message), None,
                           'UNAUTHORIZED NO-REPOST ATTEMPT',
                           update.message.chat.type)
         return
@@ -718,7 +823,7 @@ def cmd_forgive(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         if conf.warn_on_admin:
             issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
-                          update.message.chat.id,
+                          update.message.chat.id, get_text(update.message), None,
                           'UNAUTHORIZED FORGIVE ATTEMPT',
                           update.message.chat.type)
         return
@@ -765,7 +870,7 @@ def cmd_withdraw(args, update):
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         if conf.warn_on_admin:
             issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
-                          update.message.chat.id,
+                          update.message.chat.id, get_text(update.message), None,
                           'UNAUTHORIZED WITHDRAW ATTEMPT',
                           update.message.chat.type)
         return
@@ -1140,6 +1245,7 @@ def main(pill):
             pass
         except telegram.error.TelegramError as e:
             print('Error: ' + str(e))
+            traceback.print_exc()
         clear_count += 1
         if clear_count == conf.clear_every:
             tmp_clear()

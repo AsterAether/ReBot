@@ -26,6 +26,8 @@ class Warning(Base):
     timestamp = Column(DateTime)
     poster_id = Column(Integer, ForeignKey('poster.poster_id'))
     reason = Column(String(255))
+    photo_filename = Column(String(length=100))
+    text = Column(TEXT)
 
 
 class Props(Base):
@@ -37,6 +39,8 @@ class Props(Base):
     timestamp = Column(DateTime)
     poster_id = Column(Integer, ForeignKey('poster.poster_id'))
     reason = Column(String(255))
+    photo_filename = Column(String(length=100))
+    text = Column(TEXT)
 
 
 class Poster(Base):
