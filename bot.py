@@ -739,31 +739,6 @@ def cmd_forgive(args, update):
         print('FORGIVE: ' + str(e))
 
 
-def cmd_del(args, update):
-    if not check_is_overlord(update.message.from_user.id):
-        # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
-        #                  disable_notification=conf.silent)
-        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
-        print('USER ' + poster.name + ' TRIED TO CALL DEL')
-        return
-
-    try:
-        info = update.message.reply_to_message
-        try:
-            info.delete()
-        except telegram.error.BadRequest:
-            print('ERROR ON DEL: MESSAGE ALREADY DELETED')
-        except AttributeError:
-            print('ERROR ON DEL: NO MESSAGE IN REPLY TO DELETE')
-
-        try:
-            update.message.delete()
-        except telegram.error.BadRequest:
-            print('ERROR ON DEL: COMMAND MESSAGE DELETED')
-    except (AttributeError, ValueError) as e:
-        print('ERROR ON DEL' + str(e))
-
-
 def cmd_base64(args, update):
     text = ''
 
@@ -821,6 +796,83 @@ def cmd_unbase64(args, update):
         pass
 
 
+def cmd_del(args, update):
+    if not check_is_overlord(update.message.from_user.id):
+        # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+        #                  disable_notification=conf.silent)
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        print('USER ' + poster.name + ' TRIED TO CALL DEL')
+        return
+
+    try:
+        info = update.message.reply_to_message
+        try:
+            info.delete()
+        except telegram.error.BadRequest:
+            print('ERROR ON DEL: MESSAGE ALREADY DELETED')
+        except AttributeError:
+            print('ERROR ON DEL: NO MESSAGE IN REPLY TO DELETE')
+
+        try:
+            update.message.delete()
+        except telegram.error.BadRequest:
+            print('ERROR ON DEL: COMMAND MESSAGE DELETED')
+    except (AttributeError, ValueError) as e:
+        print('ERROR ON DEL' + str(e))
+
+
+def cmd_msg(args, update):
+    if not check_is_overlord(update.message.from_user.id):
+        # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+        #                  disable_notification=conf.silent)
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        print('USER ' + poster.name + ' TRIED TO CALL MSG')
+        return
+
+    if len(args) == 0:
+        print('ERROR ON MSG: ARGUMENT NEEDED')
+        return
+
+    text = ' '.join(args)
+
+    bot.send_message(update.message.chat.id, text.upper())
+
+    try:
+        update.message.delete()
+    except telegram.error.BadRequest:
+        print('ERROR ON MSG: COMMAND MESSAGE DELETED')
+
+
+def cmd_msg_chat(args, update):
+    if not check_is_overlord(update.message.from_user.id):
+        # bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+        #                  disable_notification=conf.silent)
+        poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
+        print('USER ' + poster.name + ' TRIED TO CALL MSG_CHAT')
+        return
+
+    if len(args) <= 1:
+        print('ERROR ON MSG_CHAT: ARGUMENT NEEDED')
+        return
+
+    text = ' '.join(args[1:])
+    try:
+        chat_id = int(args[0])
+    except ValueError:
+        print('ERROR ON MSG_CHAT: ID NOT INT')
+        return
+
+    try:
+        bot.send_message(chat_id, text.upper())
+    except telegram.error.BadRequest as e:
+        print('ERROR ON MSG_CHAT: ' + str(e))
+
+    try:
+        update.message.delete()
+    except telegram.error.BadRequest:
+        print('ERROR ON MSG_CHAT: COMMAND MESSAGE DELETED')
+
+
 commands = {'start': cmd_start,
             'warn': cmd_warn,
             'mywarnings': cmd_my_warnings,
@@ -840,7 +892,9 @@ commands = {'start': cmd_start,
 
 # Admin CMDs (silent):
 admin_commands = {
-    'del': cmd_del
+    'del': cmd_del,
+    'msg': cmd_msg,
+    'msgc': cmd_msg_chat
 }
 
 
