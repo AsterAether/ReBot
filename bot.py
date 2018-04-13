@@ -6,6 +6,7 @@ import os
 import sys
 import threading
 import datetime
+import binascii
 import schedule
 import base64
 from difflib import SequenceMatcher
@@ -789,6 +790,37 @@ def cmd_base64(args, update):
         pass
 
 
+def cmd_unbase64(args, update):
+    b64_text = ''
+
+    try:
+        b64_text = update.message.reply_to_message.text
+    except AttributeError:
+        pass
+
+    if not b64_text and len(args) == 0:
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A MESSAGE OR PROVIDE TEXT', disable_notification=conf.silent)
+        return
+    elif not b64_text:
+        b64_text = ' '.join(args)
+
+    try:
+        text = str(base64.b64decode(bytes(b64_text, 'utf8')), 'utf8')
+    except binascii.Error:
+        bot.send_message(update.message.chat.id,
+                         'NOT A BASE64 STRING', disable_notification=conf.silent)
+        return
+
+    try:
+        bot.send_message(update.message.chat.id,
+                         text,
+                         disable_notification=conf.silent,
+                         reply_to_message_id=update.message.message_id)
+    except telegram.error.BadRequest:
+        pass
+
+
 commands = {'start': cmd_start,
             'warn': cmd_warn,
             'mywarnings': cmd_my_warnings,
@@ -800,6 +832,7 @@ commands = {'start': cmd_start,
             'norepost': cmd_no_repost,
             'forgive': cmd_forgive,
             'b64': cmd_base64,
+            'unb64': cmd_unbase64,
             'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                           'COMMANDS: ' + ', '.join(
                                                               ['/' + c for c in commands.keys()]),
