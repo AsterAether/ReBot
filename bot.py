@@ -5,12 +5,13 @@ import time
 import os
 import sys
 import threading
+import datetime
+import schedule
+import base64
+from difflib import SequenceMatcher
 
 sys.path.append(conf.path_add)
 import img
-import datetime
-import schedule
-from difflib import SequenceMatcher
 
 
 def similar_text(a, b):
@@ -762,6 +763,32 @@ def cmd_del(args, update):
         print('ERROR ON DEL' + str(e))
 
 
+def cmd_base64(args, update):
+    text = ''
+
+    try:
+        text = update.message.reply_to_message.text
+    except AttributeError:
+        pass
+
+    if not text and len(args) == 0:
+        bot.send_message(update.message.chat.id,
+                         'YOU NEED TO REPLY TO A MESSAGE OR PROVIDE TEXT', disable_notification=conf.silent)
+        return
+    elif not text:
+        text = ' '.join(args)
+
+    b64_text = str(base64.b64encode(bytes(text, 'utf8')), 'utf8')
+
+    try:
+        bot.send_message(update.message.chat.id,
+                         b64_text,
+                         disable_notification=conf.silent,
+                         reply_to_message_id=update.message.message_id)
+    except telegram.error.BadRequest:
+        pass
+
+
 commands = {'start': cmd_start,
             'warn': cmd_warn,
             'mywarnings': cmd_my_warnings,
@@ -772,6 +799,7 @@ commands = {'start': cmd_start,
             'gettext': cmd_get_text,
             'norepost': cmd_no_repost,
             'forgive': cmd_forgive,
+            'b64': cmd_base64,
             'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                           'COMMANDS: ' + ', '.join(
                                                               ['/' + c for c in commands.keys()]),
