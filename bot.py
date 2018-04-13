@@ -878,6 +878,10 @@ def post_bad_joke(chat_id):
 def cmd_bad_joke(args, update):
     post_bad_joke(update.message.chat.id)
 
+    if update.message.from_user.id not in conf.bot_overlords:
+        set_can('badjoke', update.message.chat.id, Global.can, False)
+        return
+
 
 def cmd_flag_joke(args, update):
     try:
@@ -1029,23 +1033,26 @@ def command_allowed(poster_id, chat_id, user_jail):
     return True
 
 
-def handle_commands(update, user_jail):
+def handle_commands(update, user_jail, can):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
         print('COMMAND RECEIVED: ' + command + ' FROM ' + update.message.from_user.name)
-        if update.message.from_user.id in user_jail:
-            print('TRIES: ' + str(user_jail[update.message.from_user.id]))
-        if update.message.chat.type == 'group':
-            if not command_allowed(update.message.from_user.id, update.message.chat.id, user_jail):
-                return
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
-
         if update.message.chat.type == 'group':
             if conf.bot_name in cmd:
                 cmd = cmd.replace(conf.bot_name, '')
             elif '@' in cmd:
+                return
+
+        if update.message.from_user.id not in conf.bot_overlords and not can_call(cmd, update.message.chat.id, can):
+            return
+
+        if update.message.from_user.id in user_jail:
+            print('TRIES: ' + str(user_jail[update.message.from_user.id]))
+        if update.message.chat.type == 'group':
+            if not command_allowed(update.message.from_user.id, update.message.chat.id, user_jail):
                 return
 
         try:
@@ -1064,8 +1071,41 @@ def reset_jail(user_jail):
     user_jail.clear()
 
 
+def set_can(cmd, chat_id, can, val=True):
+    if chat_id not in can:
+        can[chat_id] = {}
+
+    chat_can = can[chat_id]
+
+    chat_can[cmd] = val
+
+
+def can_call(cmd, chat_id, can):
+    if chat_id not in can:
+        can[chat_id] = {}
+
+    chat_can = can[chat_id]
+
+    if cmd not in chat_can:
+        chat_can[cmd] = True
+
+    return chat_can[cmd]
+
+
+def reset_can(cmd, can):
+    for chat in can.keys():
+        can[chat][cmd] = True
+
+
+class Global:
+    can = None
+
+
 def main(pill):
     user_jail = {}
+    can = {}
+    Global.can = can
+
     dirs = ['files', 'tmp']
     for dir in dirs:
         if not os.path.exists(dir):
@@ -1080,6 +1120,7 @@ def main(pill):
     schedule.every().thursday.at('8:00').do(post_random, conf.schedue_chat_id)
     schedule.every().day.at('8:00').at('12:00').at('18:00').do(post_bad_joke, conf.schedue_chat_id)
     schedule.every(conf.reset_cmds).minutes.do(reset_jail, user_jail)
+    schedule.every(conf.bad_joke_timer).minutes.do(reset_can, 'badjoke', can)
     while not pill.is_set():
         try:
             updates = bot.get_updates(offset=offset)
@@ -1091,7 +1132,7 @@ def main(pill):
                     handle_import(update)
                 else:
                     handle_repost(update)
-                    handle_commands(update, user_jail)
+                    handle_commands(update, user_jail, can)
             if len(updates) > 0:
                 offset = updates[-1].update_id + 1
         except telegram.error.TimedOut:
