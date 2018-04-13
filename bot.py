@@ -138,7 +138,7 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                 text += ' SIMILARITY INDEX: ' + str(sim_index)
 
             if url_repost:
-               text += ' REASON: URL'
+                text += ' REASON: URL'
 
             if not url_repost:
                 text += '\nORIGINAL IMAGE IN REPLY'
@@ -176,7 +176,7 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                 text += ' SIMILARITY INDEX: ' + str(sim_index)
 
             if url_repost:
-               text += ' REASON: URL'
+                text += ' REASON: URL'
 
             try:
                 bot.send_message(update.message.chat.id,
@@ -339,7 +339,7 @@ def handle_repost(update):
                         reposter = db.get_reposter(update.message.from_user.id,
                                                    update.message.from_user.name)
 
-                        delete_repost=  conf.delete_reposts and update.message.chat.type == 'group'
+                        delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
                         issue_repost(filename, None, text, datetime.datetime.now(), update.message.chat.id,
                                      url_same_post.post_id, url_same_post.message_id, 2, None,
                                      reposter.reposter_id,
@@ -1009,10 +1009,27 @@ admin_commands = {
 }
 
 
-def handle_commands(update):
+def command_allowed(poster_id, user_jail):
+    if poster_id in conf.bot_overlords:
+        return True
+
+    if poster_id not in user_jail:
+        user_jail[poster_id] = 1
+        return True
+
+    if user_jail[poster_id] >= conf.max_cmds:
+        return False
+
+    user_jail[poster_id] += 1
+    return True
+
+
+def handle_commands(update, user_jail):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
         print('COMMAND RECEIVED: ' + command)
+        if not command_allowed(update.message.from_user.id, user_jail):
+            return
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
@@ -1035,7 +1052,12 @@ def handle_commands(update):
             pass
 
 
+def reset_jail(user_jail):
+    user_jail.clear()
+
+
 def main(pill):
+    user_jail = {}
     dirs = ['files', 'tmp']
     for dir in dirs:
         if not os.path.exists(dir):
@@ -1049,6 +1071,7 @@ def main(pill):
 
     schedule.every().thursday.at('8:00').do(post_random, conf.schedue_chat_id)
     schedule.every().day.at('8:00').at('12:00').at('18:00').do(post_bad_joke, conf.schedue_chat_id)
+    schedule.every(conf.reset_cmds).minutes.do(reset_jail, user_jail)
     while not pill.is_set():
         try:
             updates = bot.get_updates(offset=offset)
@@ -1060,7 +1083,7 @@ def main(pill):
                     handle_import(update)
                 else:
                     handle_repost(update)
-                    handle_commands(update)
+                    handle_commands(update, user_jail)
             if len(updates) > 0:
                 offset = updates[-1].update_id + 1
         except telegram.error.TimedOut:
