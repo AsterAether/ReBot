@@ -9,6 +9,7 @@ import datetime
 import binascii
 import schedule
 import base64
+import requests
 from difflib import SequenceMatcher
 
 sys.path.append(conf.path_add)
@@ -961,6 +962,15 @@ def cmd_unbase64(args, update):
                          reply_to_message_id=update.message.message_id)
     except telegram.error.BadRequest:
         pass
+
+
+def rd_bad_joke()
+    joke_resp = requests.get('https://www.davepagurek.com/badjokes/getjoke.php')
+    bs4 = BeautifulSoup(joke_resp, 'html.parser')
+    
+    headline = bs4.find('h2')
+    joke = bs4.find('h3')
+    
 
 
 def cmd_del(args, update):
