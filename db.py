@@ -28,6 +28,17 @@ class Warning(Base):
     reason = Column(String(255))
 
 
+class Props(Base):
+    __tablename__ = 'props'
+
+    props_id = Column(Integer, primary_key=True, autoincrement=True)
+    message_id = Column(Integer)
+    chat_id = Column(Integer)
+    timestamp = Column(DateTime)
+    poster_id = Column(Integer, ForeignKey('poster.poster_id'))
+    reason = Column(String(255))
+
+
 class Poster(Base):
     __tablename__ = 'poster'
 
@@ -189,10 +200,21 @@ def get_warning_count(poster_id, chat_id):
     return session.query(Warning).filter(Warning.poster_id == poster_id).filter(Warning.chat_id == chat_id).count()
 
 
+def get_props_count(poster_id, chat_id):
+    global session
+    return session.query(Props).filter(Props.poster_id == poster_id).filter(Props.chat_id == chat_id).count()
+
+
 def get_warnings(poster_id, chat_id):
     global session
     return session.query(Warning).filter(Warning.poster_id == poster_id).filter(Warning.chat_id == chat_id).order_by(
         Warning.timestamp).all()
+
+
+def get_props(poster_id, chat_id):
+    global session
+    return session.query(Props).filter(Props.poster_id == poster_id).filter(Props.chat_id == chat_id).order_by(
+        Props.timestamp).all()
 
 
 def get_post_stats(poster_id, chat_id):
@@ -258,6 +280,16 @@ def get_repost(repost_id):
 def get_warning(warning_id):
     global session
     return session.query(Warning).filter(Warning.warning_id == warning_id).first()
+
+
+def get_prop(props_id):
+    global session
+    return session.query(Props).filter(Props.props_id == props_id).first()
+
+
+def withdraw(props_id):
+    global session
+    session.query(Props).filter(Props.props_id == props_id).delete()
 
 
 def get_post_per_message(message_id, chat_id):
