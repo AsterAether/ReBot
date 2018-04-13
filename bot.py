@@ -493,10 +493,11 @@ def cmd_warn(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        issue_warning(poster.poster_id, poster.name, update.message.message_id,
-                      update.message.chat.id,
-                      'UNAUTHORIZED WARNING ATTEMPT',
-                      update.message.chat.type)
+        if conf.warn_on_admin:
+            issue_warning(poster.poster_id, poster.name, update.message.message_id,
+                          update.message.chat.id,
+                          'UNAUTHORIZED WARNING ATTEMPT',
+                          update.message.chat.type)
         return
 
     try:
@@ -524,10 +525,11 @@ def cmd_props(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        issue_warning(poster.poster_id, poster.name, update.message.message_id,
-                      update.message.chat.id,
-                      'UNAUTHORIZED PROPS ATTEMPT',
-                      update.message.chat.type)
+        if conf.warn_on_admin:
+            issue_warning(poster.poster_id, poster.name, update.message.message_id,
+                          update.message.chat.id,
+                          'UNAUTHORIZED PROPS ATTEMPT',
+                          update.message.chat.type)
         return
 
     try:
@@ -758,10 +760,11 @@ def cmd_no_repost(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
-                      update.message.chat.id,
-                      'UNAUTHORIZED NO-REPOST ATTEMPT',
-                      update.message.chat.type)
+        if conf.warn_on_admin:
+            issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                          update.message.chat.id,
+                          'UNAUTHORIZED NO-REPOST ATTEMPT',
+                          update.message.chat.type)
         return
 
     try:
@@ -813,10 +816,11 @@ def cmd_forgive(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
-                      update.message.chat.id,
-                      'UNAUTHORIZED FORGIVE ATTEMPT',
-                      update.message.chat.type)
+        if conf.warn_on_admin:
+            issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                          update.message.chat.id,
+                          'UNAUTHORIZED FORGIVE ATTEMPT',
+                          update.message.chat.type)
         return
 
     try:
@@ -859,10 +863,11 @@ def cmd_withdraw(args, update):
     if not check_is_overlord(update.message.from_user.id):
         poster = db.get_poster(update.message.from_user.id, update.message.from_user.name)
         bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
-                      update.message.chat.id,
-                      'UNAUTHORIZED WITHDRAW ATTEMPT',
-                      update.message.chat.type)
+        if conf.warn_on_admin:
+            issue_warning(poster.poster_id, update.message.from_user.name, update.message.message_id,
+                          update.message.chat.id,
+                          'UNAUTHORIZED WITHDRAW ATTEMPT',
+                          update.message.chat.type)
         return
 
     try:
@@ -882,7 +887,7 @@ def cmd_withdraw(args, update):
                              disable_notification=conf.silent)
             return
 
-        db.withdraw(props)
+        db.withdraw(props.props_id)
 
         poster = db.get_poster(props.poster_id, None)
 
