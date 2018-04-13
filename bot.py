@@ -1009,26 +1009,33 @@ admin_commands = {
 }
 
 
-def command_allowed(poster_id, user_jail):
+def command_allowed(poster_id, chat_id, user_jail):
+    if chat_id not in user_jail:
+        user_jail[chat_id] = {}
+
+    chat_jail = user_jail[chat_id]
+
     if poster_id in conf.bot_overlords:
         return True
 
-    if poster_id not in user_jail:
-        user_jail[poster_id] = 1
+    if poster_id not in chat_jail:
+        chat_jail[poster_id] = 1
         return True
 
-    if user_jail[poster_id] >= conf.max_cmds:
+    if chat_jail[poster_id] >= conf.max_cmds:
         return False
 
-    user_jail[poster_id] += 1
+    chat_jail[poster_id] += 1
     return True
 
 
 def handle_commands(update, user_jail):
     if update.message and update.message.text and update.message.text.startswith('/'):
         command = update.message.text[1:]
-        print('COMMAND RECEIVED: ' + command)
-        if not command_allowed(update.message.from_user.id, user_jail):
+        print('COMMAND RECEIVED: ' + command + ' FROM ' + update.message.from_user.name)
+        if update.message.from_user.id in user_jail:
+            print('TRIES: ' + str(user_jail[update.message.from_user.id]))
+        if not command_allowed(update.message.from_user.id, update.message.chat.id, user_jail):
             return
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
