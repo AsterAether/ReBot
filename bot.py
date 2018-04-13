@@ -1050,6 +1050,7 @@ commands = {'start': cmd_start,
             'props': cmd_props,
             'listprops': cmd_list_props,
             'myprops': cmd_my_props,
+            'withdraw': cmd_withdraw,
             'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                           'COMMANDS: ' + ', '.join(
                                                               ['/' + c for c in commands.keys()]),
