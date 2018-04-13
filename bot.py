@@ -839,6 +839,8 @@ def main(pill):
         except telegram.error.TimedOut:
             # print('No updates.')
             pass
+        except telegram.error.TelegramError as e:
+            print('Error: ' + str(e))
         clear_count += 1
         if clear_count == conf.clear_every:
             tmp_clear()
