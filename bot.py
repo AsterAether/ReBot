@@ -1035,8 +1035,9 @@ def handle_commands(update, user_jail):
         print('COMMAND RECEIVED: ' + command + ' FROM ' + update.message.from_user.name)
         if update.message.from_user.id in user_jail:
             print('TRIES: ' + str(user_jail[update.message.from_user.id]))
-        if not command_allowed(update.message.from_user.id, update.message.chat.id, user_jail):
-            return
+        if update.message.chat.type == 'group':
+            if not command_allowed(update.message.from_user.id, update.message.chat.id, user_jail):
+                return
         cmd_split = command.split(' ')
         cmd = cmd_split[0]
         args = cmd_split[1:]
