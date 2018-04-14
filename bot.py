@@ -607,7 +607,8 @@ def cmd_list_props(args, update):
             except telegram.error.BadRequest:
                 if prop.photo_filename:
                     bot.send_photo(update.message.chat.id,
-                                   open('files/' + prop.photo_filename, 'rb'), caption=msg_text + '\nORIGINAL MESSAGE: ' + str(prop.text),
+                                   open('files/' + prop.photo_filename, 'rb'),
+                                   caption=msg_text + '\nORIGINAL MESSAGE: ' + str(prop.text),
                                    disable_notification=conf.silent)
                 else:
                     bot.send_message(update.message.chat.id, msg_text + '\nORIGINAL MESSAGE: "' + str(prop.text) + '"',
@@ -659,7 +660,8 @@ def cmd_list_warnings(args, update):
                                    caption=msg_text + '\nORIGINAL MESSAGE: "' + str(warning.text) + '"',
                                    disable_notification=conf.silent)
                 else:
-                    bot.send_message(update.message.chat.id, msg_text + '\nORIGINAL MESSAGE: "' + str(warning.text) + '"',
+                    bot.send_message(update.message.chat.id,
+                                     msg_text + '\nORIGINAL MESSAGE: "' + str(warning.text) + '"',
                                      disable_notification=conf.silent)
             i += 1
 
@@ -1113,7 +1115,7 @@ commands = {'start': cmd_start,
             'flagjoke': cmd_flag_joke,
             'help': lambda args, update: bot.send_message(update.message.chat.id,
                                                           'COMMANDS: ' + ', '.join(
-                                                              ['/' + c for c in commands.keys()]),
+                                                              ['/' + c for c in sorted(commands.keys())]),
                                                           disable_notification=conf.silent)}
 
 # Admin CMDs (silent):
