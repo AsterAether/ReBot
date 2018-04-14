@@ -479,7 +479,7 @@ def cmd_warn(args, update):
     try:
         reason = 'MANUAL WARNING'
         if len(args) >= 1:
-            reason = args[0]
+            reason = ' '.join(args)
         poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                update.message.reply_to_message.from_user.name)
 
@@ -523,7 +523,7 @@ def cmd_props(args, update):
     try:
         reason = 'GENERAL PROPS'
         if len(args) >= 1:
-            reason = args[0]
+            reason = ' '.join(args)
         poster = db.get_poster(update.message.reply_to_message.from_user.id,
                                update.message.reply_to_message.from_user.name)
 
