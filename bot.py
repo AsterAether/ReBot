@@ -13,7 +13,10 @@ import schedule
 import telegram
 from bs4 import BeautifulSoup
 
-import conf
+if os.path.exists('conf.py'):
+    import conf
+else:
+    import conf_example as conf
 import db
 
 sys.path.append(conf.path_add)
