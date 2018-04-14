@@ -190,10 +190,13 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
             if url_repost:
                 text += ' REASON: URL'
 
-            if not url_repost:
-                text += '\nORIGINAL IMAGE IN REPLY'
+            if original_message_id:
+                if not url_repost:
+                    text += '\nORIGINAL IMAGE IN REPLY'
+                else:
+                    text += '\nORIGINAL MESSAGE IN REPLY'
             else:
-                text += '\nORIGINAL MESSAGE IN REPLY'
+                text += '\n ORIGINAL MESSAGE NOT SAVED'
 
             msg = bot.send_message(chat_id,
                                    text,
@@ -268,7 +271,10 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
                 db.save(repost)
                 return True
 
-            text = 'ORIGINAL IMAGE' if not url_repost else 'ORIGINAL MESSAGE'
+            if original_message_id:
+                text = 'ORIGINAL IMAGE' if not url_repost else 'ORIGINAL MESSAGE'
+            else:
+                text = 'ORIGINAL MESSAGE NOT SAVED'
             bot.send_message(update.message.chat.id,
                              text,
                              reply_to_message_id=original_message_id, disable_notification=conf.silent)
@@ -1223,7 +1229,9 @@ def main(pill):
     clear_count = 0
 
     schedule.every().thursday.at('8:00').do(post_random, conf.schedue_chat_id)
-    schedule.every().day.at('8:00').at('12:00').at('18:00').do(post_bad_joke, conf.schedue_chat_id)
+    schedule.every().day.at('8:00').do(post_bad_joke, conf.schedue_chat_id)
+    schedule.every().day.at('12:00').do(post_bad_joke, conf.schedue_chat_id)
+    schedule.every().day.at('18:00').do(post_bad_joke, conf.schedue_chat_id)
     schedule.every(conf.reset_cmds).minutes.do(reset_jail, user_jail)
     schedule.every(conf.bad_joke_timer).minutes.do(reset_can, 'badjoke', can)
     while not pill.is_set():
