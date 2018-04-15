@@ -3,3 +3,11 @@ maybe: first image of gif comparison
 channel wise configuration (in db?)
 modular system (old hack_bot)
 silent mode (only delete reposts)
+
+kick länge:
+1. mal -> 8h
+2. mal -> 24h
+3. mal -> 72h
+4. mal -> 1 woche
+5. mal -> 1 monat
+6. mal -> 1 jahr
