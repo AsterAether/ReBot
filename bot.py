@@ -222,7 +222,7 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
             repost.message_id = msg.message_id
             db.save(repost)
         except telegram.error.BadRequest:
-            db.post_cleanup(original_post_id, update.message.chat.id)
+            db.post_cleanup(original_message_id, update.message.chat.id)
     else:
         try:
             repost = None
@@ -289,7 +289,7 @@ def issue_repost(filename, p_hash, text, timestamp, chat_id, original_post_id, o
 
             db.save(repost)
         except telegram.error.BadRequest:
-            db.post_cleanup(original_post_id, update.message.chat.id)
+            db.post_cleanup(original_message_id, update.message.chat.id)
     return False
 
 
