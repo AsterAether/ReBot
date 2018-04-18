@@ -321,6 +321,12 @@ class Database:
     def get_products(self, shop_id):
         return self.session.query(Product).filter(Product.shop_id == shop_id).all()
 
+    def delete_product(self, prod):
+        self.session.query(Order).filter(Order.product_id == prod.product_id).delete()
+
+        self.session.delete(prod)
+        self.session.commit()
+
     def forgive_repost(self, repost):
         self.session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()
         # session.query(Warning).filter(Warning.message_id == repost.message_id).filter(

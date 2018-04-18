@@ -18,6 +18,9 @@ def register(rebot):
     commands['approve'] = cmd_approve
     commands['deny'] = cmd_deny
     commands['ordercancel'] = cmd_order_cancel
+
+    commands['addstore'] = cmd_add_store
+    commands['delproduct'] = cmd_del_product
     rebot.register_update_handle('shop_module', update_handle=handle_update)
     store = rebot.get_module_store('shop_module')
     store['chatmode'] = {}
@@ -31,7 +34,8 @@ def unregister(rebot):
 def shop_markup(shop_id):
     return telegram.InlineKeyboardMarkup([
         [telegram.InlineKeyboardButton('EDIT NAME', callback_data='seditname#' + str(shop_id)),
-         telegram.InlineKeyboardButton('EDIT DESCRIPTION', callback_data='seditdescr#' + str(shop_id))]
+         telegram.InlineKeyboardButton('EDIT DESCRIPTION', callback_data='seditdescr#' + str(shop_id))],
+        [telegram.InlineKeyboardButton('ADD PRODUCT', callback_data='addproduct#' + str(shop_id))]
     ])
 
 
@@ -188,6 +192,13 @@ def handle_update(rebot, update: telegram.Update):
 
                 rebot.bot.send_message(chat_id=chat_id, message_id=query.message.message_id,
                                        text='PLEASE SEND ME THE AMOUNT YOU WANT TO ORDER\nTO CANCEL CALL /cancel')
+            if cmd == 'addproduct':
+                shop_id = args[0]
+
+                prod = db.Product(name='NEW PRODUCT', price=0, comment='[ ]', shop_id=shop_id)
+                rebot.db_conn.save(prod)
+                rebot.bot.send_message(chat_id=chat_id, message_id=query.message.message_id,
+                                       text=str(prod.product_id) + '#P\nPRODUCT ADDED')
             elif cmd == 'seditname':
                 shop_id = args[0]
                 chatmode = rebot.get_module_store('shop_module')['chatmode']
@@ -479,3 +490,44 @@ def cmd_edit_product(rebot, args, update):
     except (AttributeError, KeyError, ValueError, IndexError) as e:
         print(str(e))
         rebot.bot.send_message(update.message.chat.id, 'REPLY TO A PRODUCT TO EDIT IT')
+
+
+def cmd_add_store(rebot, args, update):
+    try:
+        if update.message.from_user.id not in conf.bot_overlords:
+            rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
+                                   disable_notification=conf.silent)
+            return
+
+        reply_user = update.message.reply_to_message.from_user.id
+
+        store = db.Shop(name='NEW STORE',
+                        owner=rebot.db_conn.get_poster(reply_user,
+                                                       'NEWUSER [PLEASE USE /userreg TO REGISTER YOUR NAME]').poster_id,
+                        description='[ ]')
+        rebot.db_conn.save(store)
+        rebot.bot.send_message(update.message.chat.id, 'STORE CREATED',
+                               disable_notification=conf.silent)
+    except (AttributeError, KeyError, ValueError, IndexError) as e:
+        print(str(e))
+        rebot.bot.send_message(update.message.chat.id, 'REPLY TO A USER TO ADD A STORE TO HIM')
+
+
+def cmd_del_product(rebot, args, update):
+    try:
+        p_text = update.message.reply_to_message.text
+        p_id = p_text.split('#P')[0]
+
+        owner, prod, shop = rebot.db_conn.get_owner(p_id)
+
+        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
+            rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
+                                   disable_notification=conf.silent)
+            return
+
+        rebot.db_conn.delete_product(prod)
+        rebot.bot.send_message(update.message.chat.id, 'PRODUCT DELETED',
+                               disable_notification=conf.silent)
+    except (AttributeError, KeyError, ValueError, IndexError) as e:
+        print(str(e))
+        rebot.bot.send_message(update.message.chat.id, 'REPLY TO A PRODUCT TO DELETE IT')
