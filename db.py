@@ -99,6 +99,36 @@ class Repost(Base):
     reposter_id = Column(Integer, ForeignKey('reposter.reposter_id'))
 
 
+class Shop(Base):
+    __tablename__ = 'shop'
+
+    shop_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100))
+    owner = Column(Integer, ForeignKey('poster.poster_id'))
+    description = Column(String(255))
+
+
+class Product(Base):
+    __tablename__ = 'product'
+
+    product_id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100))
+    price = Column(Float)
+    comment = Column(String(255))
+    shop_id = Column(Integer, ForeignKey('shop.shop_id'))
+
+
+class Order(Base):
+    __tablename__ = 'order'
+
+    order_id = Column(Integer, primary_key=True, autoincrement=True)
+    timestamp_ordered = Column(DateTime)
+    timestamp_done = Column(DateTime)
+    comment = Column(String(255))
+    product_id = Column(Integer, ForeignKey('product.product_id'))
+    customer = Column(Integer, ForeignKey('poster.poster_id'))
+
+
 class Database:
 
     def __init__(self, driver, db_user, db_pass, db_host, db_name):
@@ -239,6 +269,9 @@ class Database:
             except FileNotFoundError:
                 pass
 
+    def get_shops(self):
+        return self.session.query(Shop).all()
+
     def forgive_repost(self, repost):
         self.session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()
         # session.query(Warning).filter(Warning.message_id == repost.message_id).filter(
@@ -264,6 +297,9 @@ class Database:
 
     def withdraw(self, props_id):
         self.session.query(Props).filter(Props.props_id == props_id).delete()
+
+    def get_post(self, post_id):
+        return self.session.query(Post).filter(Post.post_id == post_id).first()
 
     def get_post_per_message(self, message_id, chat_id):
         return self.session.query(Post).filter(Post.message_id == message_id).filter(Post.chat_id == chat_id).first()

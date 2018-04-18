@@ -95,14 +95,19 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                     text += '\nORIGINAL IMAGE IN REPLY'
                 else:
                     text += '\nORIGINAL MESSAGE IN REPLY'
+                msg = rebot.bot.send_message(chat_id,
+                                             text,
+                                             reply_to_message_id=original_message_id,
+                                             parse_mode=telegram.ParseMode.MARKDOWN,
+                                             disable_notification=conf.silent)
             else:
-                text += '\n ORIGINAL MESSAGE NOT SAVED'
-
-            msg = rebot.bot.send_message(chat_id,
-                                         text,
-                                         reply_to_message_id=original_message_id,
-                                         parse_mode=telegram.ParseMode.MARKDOWN,
-                                         disable_notification=conf.silent)
+                # text += '\n ORIGINAL MESSAGE NOT SAVED'
+                post = rebot.db_conn.get_post(original_post_id)
+                msg = rebot.bot.send_photo(chat_id, post.filename.replace('.jpg', ''),
+                                           caption=str(repost.repost_id) + '#R;' + (('{:3.2f}'.format(
+                                               sim_index) + ';') if sim_index else '') + update.message.from_user.mention_markdown(),
+                                           parse_mode=telegram.ParseMode.MARKDOWN,
+                                           disable_notification=conf.silent)
 
             if conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
                 warn.issue_warning(reposter_id,

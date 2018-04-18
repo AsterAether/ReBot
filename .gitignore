@@ -105,3 +105,4 @@ info
 conf.py
 .idea/
 tmp/
+config/
