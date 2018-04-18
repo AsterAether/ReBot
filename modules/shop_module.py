@@ -304,7 +304,7 @@ def cmd_order_cancel(rebot, args, update):
 
         owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
 
-        if order.customer != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if order.customer != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE ISSUER OF THIS ORDER',
                                    disable_notification=conf.silent)
             return
@@ -361,7 +361,7 @@ def cmd_approve(rebot, args, update):
 
         owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
 
-        if owner != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
@@ -389,7 +389,7 @@ def cmd_deny(rebot, args, update):
 
         owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
 
-        if owner != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
@@ -416,7 +416,7 @@ def cmd_finish(rebot, args, update):
 
         owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
 
-        if owner != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
@@ -442,7 +442,7 @@ def cmd_edit_shop(rebot, args, update):
 
         shop = rebot.db_conn.get_shop(s_id)
 
-        if shop.owner != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if shop.owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
@@ -465,7 +465,7 @@ def cmd_edit_product(rebot, args, update):
 
         owner, prod, shop = rebot.db_conn.get_owner(p_id)
 
-        if owner != update.message.from_user.id or update.message.from_user.id not in conf.bot_overlords:
+        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
