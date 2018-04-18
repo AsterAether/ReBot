@@ -1,4 +1,4 @@
-import conf
+
 import sys
 from difflib import SequenceMatcher
 import telegram
@@ -6,11 +6,17 @@ import datetime
 import os
 import db
 
+import modules.repost_conf as mod_conf
+import conf
+
 sys.path.append(conf.path_add)
 import img
 
 
 def register(rebot):
+    rebot.register_chat_conf('joke_module', {
+        'repost_thursday': False
+    })
     rebot.register_update_handle('repost_module', handle_update)
     commands = rebot.get_module_commands('repost_module')
     commands['poststats'] = cmd_post_stats
@@ -38,7 +44,7 @@ def similar_text(a, b):
 
 
 def handle_update(rebot, update):
-    if conf.import_mode:
+    if mod_conf.import_mode:
         handle_import(rebot, update)
     else:
         handle_repost(rebot, update)
@@ -109,7 +115,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                                            parse_mode=telegram.ParseMode.MARKDOWN,
                                            disable_notification=conf.silent)
 
-            if conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
+            if mod_conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
                 warn.issue_warning(reposter_id,
                                    update.message.from_user.name,
                                    update.message.message_id, msg_text, filename,
@@ -123,7 +129,8 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
 
             repost.message_id = msg.message_id
             rebot.db_conn.save(repost)
-        except telegram.error.BadRequest:
+        except telegram.error.BadRequest as e:
+            print(str(e))
             rebot.db_conn.post_cleanup(original_message_id, update.message.chat.id)
     else:
         try:
@@ -183,14 +190,15 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
             rebot.bot.send_message(update.message.chat.id,
                                    text,
                                    reply_to_message_id=original_message_id, disable_notification=conf.silent)
-            if conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
+            if mod_conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
                 warn.issue_warning(reposter_id, update.message.from_user.name,
                                    update.message.message_id, msg_text, filename,
                                    chat_id, repost_reason,
                                    update.message.chat.type)
 
             rebot.db_conn.save(repost)
-        except telegram.error.BadRequest:
+        except telegram.error.BadRequest as e:
+            print(str(e))
             rebot.db_conn.post_cleanup(original_message_id, update.message.chat.id)
     return False
 
@@ -213,7 +221,7 @@ def handle_repost(rebot, update):
 
             text = img.image_to_string(filename)
 
-            results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, conf.hash_threshold)
+            results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, mod_conf.hash_threshold)
 
             is_repost = False
 
@@ -227,16 +235,16 @@ def handle_repost(rebot, update):
                     r_text = result['preview_text']
                 img_distance = img.compare_image_ssim(filename, r_filename)
                 print(img_distance)
-                if img_distance >= conf.img_threshold or (
-                        img_distance >= conf.img_text_chk_threshold
+                if img_distance >= mod_conf.img_threshold or (
+                        img_distance >= mod_conf.img_text_chk_threshold
                         and text and r_text
-                        and (similar_text(text, r_text) >= conf.text_threshold)):
+                        and (similar_text(text, r_text) >= mod_conf.text_threshold)):
                     is_repost = True
 
                     reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
                                                           update.message.from_user.name)
 
-                    delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
+                    delete_repost = mod_conf.delete_reposts and update.message.chat.type == 'group'
 
                     issue_repost(rebot, filename, p_hash, text, datetime.datetime.now(), update.message.chat.id,
                                  result['post_id'], result['message_id'], 1, img_distance, reposter.reposter_id,
@@ -270,7 +278,7 @@ def handle_repost(rebot, update):
 
                     text = img.image_to_string(filename)
 
-                    results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, conf.hash_threshold)
+                    results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, mod_conf.hash_threshold)
 
                     is_repost = False
 
@@ -285,16 +293,16 @@ def handle_repost(rebot, update):
                             r_text = result['preview_text']
                         img_distance = img.compare_image_ssim(filename, r_filename)
                         print(img_distance)
-                        if img_distance >= conf.img_threshold or (
-                                img_distance >= conf.img_text_chk_threshold
+                        if img_distance >= mod_conf.img_threshold or (
+                                img_distance >= mod_conf.img_text_chk_threshold
                                 and text and r_text
-                                and (similar_text(text, r_text) >= conf.text_threshold)):
+                                and (similar_text(text, r_text) >= mod_conf.text_threshold)):
                             is_repost = True
 
                             reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
                                                                   update.message.from_user.name)
 
-                            delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
+                            delete_repost = mod_conf.delete_reposts and update.message.chat.type == 'group'
                             issue_repost(rebot, filename, p_hash, text, datetime.datetime.now(), update.message.chat.id,
                                          result['post_id'], result['message_id'], 2, img_distance,
                                          reposter.reposter_id,
@@ -319,7 +327,7 @@ def handle_repost(rebot, update):
                         reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
                                                               update.message.from_user.name)
 
-                        delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
+                        delete_repost = mod_conf.delete_reposts and update.message.chat.type == 'group'
                         issue_repost(rebot, filename, None, text, datetime.datetime.now(), update.message.chat.id,
                                      url_same_post.post_id, url_same_post.message_id, 2, None,
                                      reposter.reposter_id,
@@ -493,7 +501,7 @@ def cmd_no_repost(rebot, args, update):
 
         poster = rebot.db_conn.get_poster(repost.reposter_id, None)
 
-        if conf.delete_reposts:
+        if mod_conf.delete_reposts:
             if repost.post_type_id == 1:
                 rebot.bot.send_photo(update.message.chat.id, repost.filename.replace('.jpg', ''),
                                      caption='FORGIVEN REPOST FROM ' + poster.name + ' AT ' + str(repost.timestamp))

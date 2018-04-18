@@ -127,6 +127,7 @@ class Order(Base):
     comment = Column(String(255))
     product_id = Column(Integer, ForeignKey('product.product_id'))
     customer = Column(Integer, ForeignKey('poster.poster_id'))
+    amount = Column(Integer)
 
 
 class Database:
@@ -271,6 +272,28 @@ class Database:
 
     def get_shops(self):
         return self.session.query(Shop).all()
+
+    def get_owner(self, product_id):
+        product = self.session.query(Product).filter(Product.product_id == product_id).first()
+        shop = self.session.query(Shop).filter(Shop.shop_id == product.shop_id).first()
+        return shop.owner, product, shop
+
+    def get_order(self, order_id):
+        return self.session.query(Order).filter(Order.order_id == order_id).first()
+
+    def get_produt(self, prod_id):
+        return self.session.query(Product).filter(Product.product_id == prod_id).first()
+
+    def get_shop(self, shop_id):
+        return self.session.query(Shop).filter(Shop.shop_id == shop_id).first()
+
+    def get_open_orders(self, poster_id):
+        return self.session.execute(
+            'SELECT order_id, customer, o.comment as comment, p.name as name, amount FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
+                poster_id) + ' AND o.timestamp_done IS NULL').fetchall()
+
+    def get_products(self, shop_id):
+        return self.session.query(Product).filter(Product.shop_id == shop_id).all()
 
     def forgive_repost(self, repost):
         self.session.query(Repost).filter(Repost.repost_id == repost.repost_id).delete()

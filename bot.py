@@ -33,7 +33,7 @@ class ReBot:
             'msgc': ReBot.cmd_msg_chat
         }
 
-        self.module_config = {}
+        self.module_chat_config = {}
         self.modules = {}
         self.handle_update = {}
         self.chat_config = {}
@@ -51,6 +51,9 @@ class ReBot:
         rebot.bot.send_message(update.message.chat.id,
                                text,
                                disable_notification=conf.silent)
+
+    def register_chat_conf(self, module, conf):
+        self.module_chat_config[module] = conf
 
     def start(self):
         stop_pill = threading.Event()
@@ -115,6 +118,16 @@ class ReBot:
             print('Loaded; ' + module_name)
             self.modules[module_name] = module
 
+        default_conf = {}
+        for module in self.modules.keys():
+            default_conf[module + '_enabled'] = True
+            try:
+                mod_conf = self.module_chat_config[module]
+                for key in mod_conf.keys():
+                    default_conf[key] = mod_conf[key]
+            except KeyError:
+                pass
+
         for the_file in os.listdir('config/'):
             file_path = os.path.join('config/', the_file)
             conf_chat_id = int(file_path.replace('.conf', '').replace('config/', ''))
@@ -133,11 +146,9 @@ class ReBot:
                     if update.message:
                         message = update.message
                         if message.chat.id not in self.chat_config:
-                            with open('chat_std.conf', 'r', encoding='utf8') as f:
-                                chat_conf = eval(f.read())
-                            self.chat_config[message.chat.id] = chat_conf
+                            self.chat_config[message.chat.id] = default_conf
                             with open('config/' + str(message.chat.id) + '.conf', 'w') as f:
-                                f.write(str(chat_conf))
+                                f.write(str(default_conf))
                     # print(update)
                     # if update.message:
                     #     print(update.message.parse_entities())

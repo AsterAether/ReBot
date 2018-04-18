@@ -1,9 +1,10 @@
 import datetime
 import telegram
-import conf
 import time
 import os
 import db
+import modules.warn_conf as mod_conf
+import conf
 
 
 def register(rebot):
@@ -27,12 +28,12 @@ def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, phot
         return 0
 
     warning = db.Warning(message_id=message_id,
-                               chat_id=chat_id,
-                               timestamp=datetime.datetime.now(),
-                               poster_id=poster_id,
-                               reason=reason,
-                               photo_filename=photo,
-                               text=text)
+                         chat_id=chat_id,
+                         timestamp=datetime.datetime.now(),
+                         poster_id=poster_id,
+                         reason=reason,
+                         photo_filename=photo,
+                         text=text)
 
     rebot.db_conn.save(warning)
 
@@ -64,12 +65,12 @@ def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, phot
                                    disable_notification=conf.silent)
 
     if chat_type != 'private':
-        if conf.max_warnings - conf.kick_warn_threshold < count - min(conf.props_max_minus,
-                                                                      props_count) < conf.max_warnings:
+        if mod_conf.max_warnings - mod_conf.kick_warn_threshold < count - min(mod_conf.props_max_minus,
+                                                                              props_count) < mod_conf.max_warnings:
             rebot.bot.send_message(chat_id, str(
-                conf.max_warnings - count + min(conf.props_max_minus, props_count)) + ' MORE WARNING' + (
+                mod_conf.max_warnings - count + min(mod_conf.props_max_minus, props_count)) + ' MORE WARNING' + (
                                        '' if count == 1 else 'S') + ' AND YOU WILL BE KICKED')
-        elif count - min(conf.props_max_minus, props_count) >= conf.max_warnings:
+        elif count - min(mod_conf.props_max_minus, props_count) >= mod_conf.max_warnings:
             rebot.bot.send_message(chat_id, '0 MORE WARNINGS AND YOU WILL BE KICKED')
             time.sleep(2)
             rebot.bot.send_message(chat_id, 'OH WAIT; IT\'S ALREADY TIME TO GO')
@@ -85,12 +86,12 @@ def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, phot
 
 def issue_props(rebot, poster_id, poster_name, message_id, chat_id, text, photo, reason):
     props = db.Props(message_id=message_id,
-                           chat_id=chat_id,
-                           timestamp=datetime.datetime.now(),
-                           poster_id=poster_id,
-                           reason=reason,
-                           photo_filename=photo,
-                           text=text)
+                     chat_id=chat_id,
+                     timestamp=datetime.datetime.now(),
+                     poster_id=poster_id,
+                     reason=reason,
+                     photo_filename=photo,
+                     text=text)
 
     rebot.db_conn.save(props)
 
@@ -125,7 +126,7 @@ def cmd_warn(rebot, args, update):
         poster = rebot.db_conn.get_poster(update.message.from_user.id, update.message.from_user.name)
         rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
 
-        if conf.warn_on_admin:
+        if mod_conf.warn_on_admin:
             issue_warning(rebot, poster.poster_id, poster.name, update.message.message_id,
                           update.message.chat.id, rebot.get_text(update.message), None,
                           'UNAUTHORIZED WARNING ATTEMPT',
@@ -137,7 +138,7 @@ def cmd_warn(rebot, args, update):
         if len(args) >= 1:
             reason = ' '.join(args)
         poster = rebot.db_conn.get_poster(update.message.reply_to_message.from_user.id,
-                                     update.message.reply_to_message.from_user.name)
+                                          update.message.reply_to_message.from_user.name)
 
         if poster.poster_id == conf.bot_id:
             rebot.bot.send_message(update.message.chat.id, 'OUCH; THAT HURT MY FEELINGS',
@@ -170,7 +171,7 @@ def cmd_props(rebot, args, update):
     if not rebot.check_is_overlord(update.message.from_user.id):
         poster = rebot.db_conn.get_poster(update.message.from_user.id, update.message.from_user.name)
         rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
-        if conf.warn_on_admin:
+        if mod_conf.warn_on_admin:
             issue_warning(rebot, poster.poster_id, poster.name, update.message.message_id,
                           update.message.chat.id, rebot.get_text(update.message), None,
                           'UNAUTHORIZED PROPS ATTEMPT',
@@ -182,7 +183,7 @@ def cmd_props(rebot, args, update):
         if len(args) >= 1:
             reason = ' '.join(args)
         poster = rebot.db_conn.get_poster(update.message.reply_to_message.from_user.id,
-                                     update.message.reply_to_message.from_user.name)
+                                          update.message.reply_to_message.from_user.name)
 
         if poster.poster_id == conf.bot_id:
             rebot.bot.send_message(update.message.chat.id, 'I ALREADY KNOW I\'M GOOD', disable_notification=conf.silent)
@@ -210,7 +211,7 @@ def cmd_props(rebot, args, update):
 
 def cmd_my_warnings(rebot, args, update):
     poster = rebot.db_conn.get_poster(update.message.from_user.id,
-                                 update.message.from_user.name)
+                                      update.message.from_user.name)
 
     count = rebot.db_conn.get_warning_count(poster.poster_id, update.message.chat.id)
     rebot.bot.send_message(update.message.chat.id,
@@ -221,7 +222,7 @@ def cmd_my_warnings(rebot, args, update):
 
 def cmd_my_props(rebot, args, update):
     poster = rebot.db_conn.get_poster(update.message.from_user.id,
-                                 update.message.from_user.name)
+                                      update.message.from_user.name)
 
     count = rebot.db_conn.get_props_count(poster.poster_id, update.message.chat.id)
     rebot.bot.send_message(update.message.chat.id,
@@ -239,7 +240,7 @@ def cmd_list_props(rebot, args, update):
 
         if poster is None:
             poster = rebot.db_conn.get_poster(update.message.reply_to_message.from_user.id,
-                                         update.message.reply_to_message.from_user.name)
+                                              update.message.reply_to_message.from_user.name)
 
         if poster.poster_id != update.message.from_user.id and not rebot.check_is_overlord(update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',
@@ -289,7 +290,7 @@ def cmd_list_warnings(rebot, args, update):
 
         if poster is None:
             poster = rebot.db_conn.get_poster(update.message.reply_to_message.from_user.id,
-                                         update.message.reply_to_message.from_user.name)
+                                              update.message.reply_to_message.from_user.name)
 
         if poster.poster_id != update.message.from_user.id and not rebot.check_is_overlord(update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS',

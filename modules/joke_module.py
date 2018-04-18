@@ -1,19 +1,23 @@
 import requests
 from bs4 import BeautifulSoup
 import telegram
+import modules.joke_conf as mod_conf
 import conf
 
 
 def register(rebot):
+    rebot.register_chat_conf('joke_module', {
+        'joke_scheduling': False
+    })
     commands = rebot.get_module_commands('joke_module')
     commands['badjoke'] = cmd_bad_joke
     commands['flagjoke'] = cmd_flag_joke
 
-    rebot.scheduler.every().day.at('8:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
-    rebot.scheduler.every().day.at('12:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
-    rebot.scheduler.every().day.at('18:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
+    rebot.scheduler.every().day.at('8:00').tag('joke').do(joke_schedule, rebot)
+    rebot.scheduler.every().day.at('12:00').tag('joke').do(joke_schedule, rebot)
+    rebot.scheduler.every().day.at('18:00').tag('joke').do(joke_schedule, rebot)
 
-    rebot.scheduler.every(conf.bad_joke_timer).tag('joke').minutes.do(rebot.reset_can, 'badjoke')
+    rebot.scheduler.every(mod_conf.bad_joke_timer).tag('joke').minutes.do(rebot.reset_can, 'badjoke')
 
 
 def unregister(rebot):
