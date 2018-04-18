@@ -5,13 +5,13 @@ import conf
 
 
 def register(rebot):
-    rebot.commands['b64'] = cmd_base64
-    rebot.commands['unb64'] = cmd_unbase64
+    commands = rebot.get_module_commands('hack_module')
+    commands['b64'] = cmd_base64
+    commands['unb64'] = cmd_unbase64
 
 
 def unregister(rebot):
-    del rebot.commands['b64']
-    del rebot.commands['unb64']
+    rebot.del_module_commands('hack_module')
 
 
 def cmd_base64(rebot, args, update):

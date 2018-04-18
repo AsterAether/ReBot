@@ -11,21 +11,26 @@ import img
 
 
 def register(rebot):
-    rebot.handle_update.append(handle_update)
-    rebot.commands['poststats'] = cmd_post_stats
-    rebot.commands['getrepost'] = cmd_get_repost
-    rebot.commands['randompost'] = cmd_random_post
-    rebot.commands['gettext'] = cmd_get_text
-    rebot.commands['norepost'] = cmd_no_repost
+    rebot.register_update_handle('repost_module', handle_update)
+    commands = rebot.get_module_commands('repost_module')
+    commands['poststats'] = cmd_post_stats
+    commands['getrepost'] = cmd_get_repost
+    commands['randompost'] = cmd_random_post
+    commands['gettext'] = cmd_get_text
+    commands['norepost'] = cmd_no_repost
+    rebot.scheduler.every().thursday.at('8:00').tag('repost').do(repost_thursday, rebot)
 
 
 def unregister(rebot):
-    rebot.handle_update.remove(handle_update)
-    del rebot.commands['poststats']
-    del rebot.commands['getrepost']
-    del rebot.commands['randompost']
-    del rebot.commands['gettext']
-    del rebot.commands['norepost']
+    rebot.del_module_commands('repost_module')
+    rebot.scheduler.clear('repost')
+    rebot.del_update_handles('repost_module')
+
+
+def repost_thursday(rebot):
+    for chat in rebot.chat_config:
+        if rebot.get_chat_conf(chat, 'repost_thursday'):
+            post_random(rebot, chat)
 
 
 def similar_text(a, b):
@@ -51,27 +56,27 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
         repost = None
         if post_type_id == 1:
             repost = db.Repost(filename=filename,
-                                     file_hash=p_hash,
-                                     text=text,
-                                     timestamp=timestamp,
-                                     chat_id=chat_id,
-                                     original_post_id=original_post_id,
-                                     post_type_id=post_type_id,
-                                     similarity_index=sim_index,
-                                     reposter_id=reposter_id
-                                     )
+                               file_hash=p_hash,
+                               text=text,
+                               timestamp=timestamp,
+                               chat_id=chat_id,
+                               original_post_id=original_post_id,
+                               post_type_id=post_type_id,
+                               similarity_index=sim_index,
+                               reposter_id=reposter_id
+                               )
         elif post_type_id == 2:
             repost = db.Repost(filename_preview=filename,
-                                     file_preview_hash=p_hash,
-                                     preview_text=text,
-                                     url=url,
-                                     timestamp=timestamp,
-                                     chat_id=chat_id,
-                                     original_post_id=original_post_id,
-                                     post_type_id=post_type_id,
-                                     similarity_index=sim_index,
-                                     reposter_id=reposter_id
-                                     )
+                               file_preview_hash=p_hash,
+                               preview_text=text,
+                               url=url,
+                               timestamp=timestamp,
+                               chat_id=chat_id,
+                               original_post_id=original_post_id,
+                               post_type_id=post_type_id,
+                               similarity_index=sim_index,
+                               reposter_id=reposter_id
+                               )
         rebot.db_conn.save(repost)
 
         try:
@@ -99,7 +104,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                                          parse_mode=telegram.ParseMode.MARKDOWN,
                                          disable_notification=conf.silent)
 
-            if conf.warn_on_repost and warn:
+            if conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
                 warn.issue_warning(reposter_id,
                                    update.message.from_user.name,
                                    update.message.message_id, msg_text, filename,
@@ -120,27 +125,27 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
             repost = None
             if post_type_id == 1:
                 repost = db.Repost(filename=filename,
-                                         file_hash=p_hash,
-                                         text=text,
-                                         timestamp=timestamp,
-                                         chat_id=chat_id,
-                                         original_post_id=original_post_id,
-                                         post_type_id=post_type_id,
-                                         similarity_index=sim_index,
-                                         reposter_id=reposter_id
-                                         )
+                                   file_hash=p_hash,
+                                   text=text,
+                                   timestamp=timestamp,
+                                   chat_id=chat_id,
+                                   original_post_id=original_post_id,
+                                   post_type_id=post_type_id,
+                                   similarity_index=sim_index,
+                                   reposter_id=reposter_id
+                                   )
             elif post_type_id == 2:
                 repost = db.Repost(filename_preview=filename,
-                                         file_preview_hash=p_hash,
-                                         preview_text=text,
-                                         url=url,
-                                         timestamp=timestamp,
-                                         chat_id=chat_id,
-                                         original_post_id=original_post_id,
-                                         post_type_id=post_type_id,
-                                         similarity_index=sim_index,
-                                         reposter_id=reposter_id
-                                         )
+                                   file_preview_hash=p_hash,
+                                   preview_text=text,
+                                   url=url,
+                                   timestamp=timestamp,
+                                   chat_id=chat_id,
+                                   original_post_id=original_post_id,
+                                   post_type_id=post_type_id,
+                                   similarity_index=sim_index,
+                                   reposter_id=reposter_id
+                                   )
 
             rebot.db_conn.save(repost)
 
@@ -173,7 +178,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
             rebot.bot.send_message(update.message.chat.id,
                                    text,
                                    reply_to_message_id=original_message_id, disable_notification=conf.silent)
-            if conf.warn_on_repost and warn:
+            if conf.warn_on_repost and warn and rebot.module_enabled('warn_module', update.message.chat.id):
                 warn.issue_warning(reposter_id, update.message.from_user.name,
                                    update.message.message_id, msg_text, filename,
                                    chat_id, repost_reason,
@@ -224,7 +229,7 @@ def handle_repost(rebot, update):
                     is_repost = True
 
                     reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
-                                                     update.message.from_user.name)
+                                                          update.message.from_user.name)
 
                     delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
 
@@ -234,14 +239,14 @@ def handle_repost(rebot, update):
                     break
             if not is_repost:
                 post = db.Post(filename=filename,
-                                     file_hash=p_hash,
-                                     text=text,
-                                     timestamp=datetime.datetime.now(),
-                                     chat_id=update.message.chat.id,
-                                     message_id=update.message.message_id,
-                                     post_type_id=1,
-                                     poster_id=rebot.db_conn.get_poster(update.message.from_user.id,
-                                                                   update.message.from_user.name).poster_id)
+                               file_hash=p_hash,
+                               text=text,
+                               timestamp=datetime.datetime.now(),
+                               chat_id=update.message.chat.id,
+                               message_id=update.message.message_id,
+                               post_type_id=1,
+                               poster_id=rebot.db_conn.get_poster(update.message.from_user.id,
+                                                                  update.message.from_user.name).poster_id)
                 rebot.db_conn.save(post)
         if update.message.text:
             urls = update.message.parse_entities(types=['url'])
@@ -282,7 +287,7 @@ def handle_repost(rebot, update):
                             is_repost = True
 
                             reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
-                                                             update.message.from_user.name)
+                                                                  update.message.from_user.name)
 
                             delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
                             issue_repost(rebot, filename, p_hash, text, datetime.datetime.now(), update.message.chat.id,
@@ -292,22 +297,22 @@ def handle_repost(rebot, update):
                             break
                     if not is_repost:
                         post = db.Post(filename_preview=filename,
-                                             file_preview_hash=p_hash,
-                                             preview_text=text,
-                                             url=url,
-                                             timestamp=datetime.datetime.now(),
-                                             chat_id=update.message.chat.id,
-                                             message_id=update.message.message_id,
-                                             post_type_id=2,
-                                             poster_id=rebot.db_conn.get_poster(update.message.from_user.id,
-                                                                           update.message.from_user.name).poster_id)
+                                       file_preview_hash=p_hash,
+                                       preview_text=text,
+                                       url=url,
+                                       timestamp=datetime.datetime.now(),
+                                       chat_id=update.message.chat.id,
+                                       message_id=update.message.message_id,
+                                       post_type_id=2,
+                                       poster_id=rebot.db_conn.get_poster(update.message.from_user.id,
+                                                                          update.message.from_user.name).poster_id)
                         rebot.db_conn.save(post)
                 else:
                     url_same_post = rebot.db_conn.get_same_url_post(url, update.message.chat.id)
 
                     if url_same_post:
                         reposter = rebot.db_conn.get_reposter(update.message.from_user.id,
-                                                         update.message.from_user.name)
+                                                              update.message.from_user.name)
 
                         delete_repost = conf.delete_reposts and update.message.chat.type == 'group'
                         issue_repost(rebot, filename, None, text, datetime.datetime.now(), update.message.chat.id,
@@ -323,7 +328,7 @@ def handle_import(rebot, update):
 
         print(update)
         poster = rebot.db_conn.get_poster(update.message.forward_from.id,
-                                     update.message.forward_from.name)
+                                          update.message.forward_from.name)
 
         timestamp = update.message.forward_date
 
@@ -346,11 +351,11 @@ def handle_import(rebot, update):
 
             text = img.image_to_string(filename)
             post = db.Post(filename=filename,
-                                 file_hash=p_hash,
-                                 text=text,
-                                 timestamp=timestamp,
-                                 post_type_id=1,
-                                 poster_id=poster.poster_id)
+                           file_hash=p_hash,
+                           text=text,
+                           timestamp=timestamp,
+                           post_type_id=1,
+                           poster_id=poster.poster_id)
             rebot.db_conn.save(post)
             print('IMPORTED ' + filename)
 
@@ -363,7 +368,7 @@ def cmd_post_stats(rebot, args, update):
 
         if poster is None:
             poster = rebot.db_conn.get_poster(update.message.reply_to_message.from_user.id,
-                                         update.message.reply_to_message.from_user.name)
+                                              update.message.reply_to_message.from_user.name)
 
         post_count, repost_count = rebot.db_conn.get_post_stats(poster.poster_id, update.message.chat.id)
 
@@ -457,7 +462,7 @@ def cmd_no_repost(rebot, args, update):
         poster = rebot.db_conn.get_poster(update.message.from_user.id, update.message.from_user.name)
         rebot.bot.send_message(update.message.chat.id, 'SORRY YOU ARE NOT ONE OF MY OVERLORDS')
         warn = None
-        if 'warn_module' in rebot.modules.keys():
+        if 'warn_module' in rebot.modules.keys() and rebot.module_enabled('warn_module', update.message.chat.id):
             warn = rebot.modules['warn_module']
         if conf.warn_on_admin and warn:
             warn.issue_warning(rebot, poster.poster_id, update.message.from_user.name, update.message.message_id,

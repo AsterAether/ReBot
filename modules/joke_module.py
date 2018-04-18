@@ -5,13 +5,26 @@ import conf
 
 
 def register(rebot):
-    rebot.commands['badjoke'] = cmd_bad_joke
-    rebot.commands['flagjoke'] = cmd_flag_joke
+    commands = rebot.get_module_commands('joke_module')
+    commands['badjoke'] = cmd_bad_joke
+    commands['flagjoke'] = cmd_flag_joke
+
+    rebot.scheduler.every().day.at('8:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
+    rebot.scheduler.every().day.at('12:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
+    rebot.scheduler.every().day.at('18:00').tag('joke').do(post_bad_joke, conf.schedue_chat_id)
+
+    rebot.scheduler.every(conf.bad_joke_timer).tag('joke').minutes.do(rebot.reset_can, 'badjoke')
 
 
 def unregister(rebot):
-    del rebot.commands['badjoke']
-    del rebot.commands['flagjoke']
+    rebot.del_module_commands('joke_module')
+    rebot.scheduler.clear('joke')
+
+
+def joke_schedule(rebot):
+    for chat in rebot.chat_config:
+        if rebot.get_chat_conf(chat, 'joke_scheduling'):
+            post_bad_joke(rebot, chat)
 
 
 def post_bad_joke(rebot, chat_id):

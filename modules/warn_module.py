@@ -7,25 +7,19 @@ import db
 
 
 def register(rebot):
-    rebot.commands['warn'] = cmd_warn
-    rebot.commands['forgive'] = cmd_forgive
-    rebot.commands['props'] = cmd_props
-    rebot.commands['withdraw'] = cmd_withdraw
-    rebot.commands['listprops'] = cmd_list_props
-    rebot.commands['listwarnings'] = cmd_list_warnings
-    rebot.commands['myprops'] = cmd_my_props
-    rebot.commands['mywarnings'] = cmd_my_warnings
+    commands = rebot.get_module_commands('warn_module')
+    commands['warn'] = cmd_warn
+    commands['forgive'] = cmd_forgive
+    commands['props'] = cmd_props
+    commands['withdraw'] = cmd_withdraw
+    commands['listprops'] = cmd_list_props
+    commands['listwarnings'] = cmd_list_warnings
+    commands['myprops'] = cmd_my_props
+    commands['mywarnings'] = cmd_my_warnings
 
 
 def unregister(rebot):
-    del rebot.commands['warn']
-    del rebot.commands['forgive']
-    del rebot.commands['props']
-    del rebot.commands['withdraw']
-    del rebot.commands['listprops']
-    del rebot.commands['listwarnings']
-    del rebot.commands['myprops']
-    del rebot.commands['mywarnings']
+    rebot.del_module_commands('warn_module')
 
 
 def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, photo, reason, chat_type):

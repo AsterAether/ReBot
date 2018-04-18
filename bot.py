@@ -21,13 +21,11 @@ class ReBot:
                                    db_host=conf.db_host, db_name=conf.db_name)
         self.user_jail = {}
         self.can = {}
-        self.commands = {'start': ReBot.cmd_start,
-                         'help': lambda rebot, args, update: rebot.bot.send_message(update.message.chat.id,
-                                                                                    'COMMANDS: ' + ', '.join(
-                                                                                        ['/' + c for c in
-                                                                                         sorted(
-                                                                                             rebot.commands.keys())]),
-                                                                                    disable_notification=conf.silent)}
+        self.commands = {
+            'bot':
+                {'start': ReBot.cmd_start,
+                 'help': ReBot.cmd_help}
+        }
         # Admin CMDs (silent):
         self.admin_commands = {
             'del': ReBot.cmd_del,
@@ -37,7 +35,22 @@ class ReBot:
 
         self.module_config = {}
         self.modules = {}
-        self.handle_update = []
+        self.handle_update = {}
+        self.chat_config = {}
+
+    @staticmethod
+    def cmd_help(rebot, args, update):
+        text = 'COMMANDS;\n'
+        for module in rebot.commands.keys():
+            if not rebot.module_enabled(module, update.message.chat.id):
+                continue
+            cmds = rebot.commands[module]
+            cmd_text = ', '.join('/' + c for c in
+                                 sorted(cmds.keys()))
+            text += module.upper() + ': ' + cmd_text + '\n'
+        rebot.bot.send_message(update.message.chat.id,
+                               text,
+                               disable_notification=conf.silent)
 
     def start(self):
         stop_pill = threading.Event()
@@ -53,6 +66,15 @@ class ReBot:
 
         stop_pill.set()
 
+    def get_module_commands(self, module):
+        if module not in self.commands:
+            self.commands[module] = {}
+        return self.commands[module]
+
+    def del_module_commands(self, module):
+        if module in self.commands:
+            del self.commands[module]
+
     @staticmethod
     def tmp_clear():
         for the_file in os.listdir('tmp/'):
@@ -63,9 +85,18 @@ class ReBot:
             except Exception as e:
                 print(e)
 
+    def register_update_handle(self, module, update_handle):
+        if module not in self.handle_update:
+            self.handle_update[module] = []
+
+        self.handle_update[module].append(update_handle)
+
+    def del_update_handles(self, module):
+        del self.handle_update[module]
+
     def bot_loop(self, pill):
 
-        dirs = ['files', 'tmp']
+        dirs = ['files', 'tmp', 'config']
         for dir in dirs:
             if not os.path.exists(dir):
                 os.mkdir(dir)
@@ -75,11 +106,6 @@ class ReBot:
 
         offset = 0
 
-        # schedule.every().thursday.at('8:00').do(post_random, conf.schedue_chat_id)
-        # schedule.every().day.at('8:00').do(post_bad_joke, conf.schedue_chat_id)
-        # schedule.every().day.at('12:00').do(post_bad_joke, conf.schedue_chat_id)
-        # schedule.every().day.at('18:00').do(post_bad_joke, conf.schedue_chat_id)
-        # schedule.every(conf.bad_joke_timer).minutes.do(reset_can, 'badjoke', can)
         self.scheduler.every(conf.reset_cmds).minutes.do(self.reset_jail)
         self.scheduler.every(conf.clear_every).minutes.do(ReBot.tmp_clear)
 
@@ -89,10 +115,29 @@ class ReBot:
             print('Loaded; ' + module_name)
             self.modules[module_name] = module
 
+        for the_file in os.listdir('config/'):
+            file_path = os.path.join('config/', the_file)
+            conf_chat_id = int(file_path.replace('.conf', '').replace('config/', ''))
+            try:
+                if os.path.isfile(file_path):
+                    with open(file_path, 'r', encoding='utf8') as f:
+                        chat_conf = eval(f.read())
+                    self.chat_config[conf_chat_id] = chat_conf
+            except Exception as e:
+                print(e)
+
         while not pill.is_set():
             try:
                 updates = self.bot.get_updates(offset=offset)
                 for update in updates:
+                    if update.message:
+                        message = update.message
+                        if message.chat.id not in self.chat_config:
+                            with open('chat_std.conf', 'r', encoding='utf8') as f:
+                                chat_conf = eval(f.read())
+                            self.chat_config[message.chat.id] = chat_conf
+                            with open('config/' + str(message.chat.id) + '.conf', 'w') as f:
+                                f.write(str(chat_conf))
                     # print(update)
                     # if update.message:
                     #     print(update.message.parse_entities())
@@ -100,8 +145,14 @@ class ReBot:
                     #     handle_import(update)
                     # else:
                     #     handle_repost(update)
-                    for update_handle in self.handle_update:
-                        update_handle(self, update)
+                    for module in self.handle_update.keys():
+                        if update.message:
+                            if self.module_enabled(module, update.message.chat.id):
+                                for update_handle in self.handle_update[module]:
+                                    update_handle(self, update)
+                        else:
+                            for update_handle in self.handle_update[module]:
+                                update_handle(self, update)
                     self.handle_commands(update)
                 if len(updates) > 0:
                     offset = updates[-1].update_id + 1
@@ -121,6 +172,14 @@ class ReBot:
 
         self.db_conn.stop_session()
         self.db_conn.stop_engine()
+
+    def module_enabled(self, module, chat_id):
+        if module == 'bot':
+            return True
+        return self.chat_config[chat_id][module + '_enabled']
+
+    def get_chat_conf(self, chat_id, conf):
+        return self.chat_config[chat_id][conf]
 
     @staticmethod
     def check_is_overlord(user_id):
@@ -260,13 +319,12 @@ class ReBot:
             if update.message.chat.type == 'group':
                 if not self.command_allowed(update.message.from_user.id, update.message.chat.id):
                     return
-
-            try:
-                self.commands[cmd](self, args, update)
-            except KeyError:
-                if cmd not in self.admin_commands or not ReBot.check_is_overlord(update.message.from_user.id):
-                    self.bot.send_message(update.message.chat.id, 'I DON\'T RECOGNIZE THIS COMMAND: ' + cmd,
-                                          disable_notification=conf.silent)
+            for module in self.commands.keys():
+                if self.module_enabled(module, update.message.chat.id):
+                    try:
+                        self.commands[module][cmd](self, args, update)
+                    except KeyError:
+                        pass
             try:
                 self.admin_commands[cmd](self, args, update)
             except KeyError:
