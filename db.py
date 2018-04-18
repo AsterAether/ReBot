@@ -1,6 +1,6 @@
 import sqlalchemy as sqa
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float, TEXT
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float, TEXT, and_
 from sqlalchemy.orm import sessionmaker
 import os
 
@@ -124,6 +124,7 @@ class Order(Base):
     order_id = Column(Integer, primary_key=True, autoincrement=True)
     timestamp_ordered = Column(DateTime)
     timestamp_done = Column(DateTime)
+    timestamp_approved = Column(DateTime)
     comment = Column(String(255))
     product_id = Column(Integer, ForeignKey('product.product_id'))
     customer = Column(Integer, ForeignKey('poster.poster_id'))
@@ -195,6 +196,18 @@ class Database:
             self.session.add(poster)
             self.session.commit()
         return poster
+
+    def update_poster(self, poster_id, name):
+        poster = self.session.query(Poster).filter(Poster.poster_id == poster_id).first()
+        if not poster:
+            poster = Poster(poster_id=poster_id, name=name)
+            self.session.add(poster)
+            self.session.commit()
+            return
+        poster.name = name
+        self.session.add(poster)
+        self.session.commit()
+        return
 
     def get_reposter(self, reposter_id, name):
         reposter = self.session.query(Reposter).filter(Reposter.reposter_id == reposter_id).first()
@@ -281,16 +294,29 @@ class Database:
     def get_order(self, order_id):
         return self.session.query(Order).filter(Order.order_id == order_id).first()
 
-    def get_produt(self, prod_id):
+    def get_product(self, prod_id):
         return self.session.query(Product).filter(Product.product_id == prod_id).first()
 
     def get_shop(self, shop_id):
         return self.session.query(Shop).filter(Shop.shop_id == shop_id).first()
 
+    def del_order(self, order_id):
+        self.session.query(Order).filter(Order.order_id == order_id).delete()
+        self.session.commit()
+
     def get_open_orders(self, poster_id):
         return self.session.execute(
             'SELECT order_id, customer, o.comment as comment, p.name as name, amount FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
-                poster_id) + ' AND o.timestamp_done IS NULL').fetchall()
+                poster_id) + ' AND o.timestamp_done IS NULL AND o.timestamp_approved IS NOT NULL').fetchall()
+
+    def get_unapproved_orders(self, poster_id):
+        return self.session.execute(
+            'SELECT order_id, customer, o.comment as comment, p.name as name, amount FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
+                poster_id) + ' AND o.timestamp_done IS NULL AND o.timestamp_approved IS NULL').fetchall()
+
+    def get_orders(self, customer):
+        return self.session.query(Order).filter(
+            and_((Order.customer == customer), (Order.timestamp_done == None))).all()
 
     def get_products(self, shop_id):
         return self.session.query(Product).filter(Product.shop_id == shop_id).all()

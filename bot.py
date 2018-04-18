@@ -24,7 +24,8 @@ class ReBot:
         self.commands = {
             'bot':
                 {'start': ReBot.cmd_start,
-                 'help': ReBot.cmd_help}
+                 'help': ReBot.cmd_help,
+                 'userreg': ReBot.cmd_userreg}
         }
         # Admin CMDs (silent):
         self.admin_commands = {
@@ -33,10 +34,21 @@ class ReBot:
             'msgc': ReBot.cmd_msg_chat
         }
 
+        self.module_store = {}
         self.module_chat_config = {}
         self.modules = {}
         self.handle_update = {}
         self.chat_config = {}
+
+    def get_module_store(self, module):
+        if module not in self.module_store:
+            self.module_store[module] = {}
+
+        return self.module_store[module]
+
+    @staticmethod
+    def cmd_userreg(rebot, args, update):
+        rebot.db_conn.update_poster(update.message.from_user.id, update.message.from_user.name)
 
     @staticmethod
     def cmd_help(rebot, args, update):
