@@ -4,11 +4,10 @@ import os
 import cv2
 import imagehash
 import re
-import numpy as np
 
 from skimage.measure import compare_ssim as ssim
 
-from PIL import Image, ImageChops
+from PIL import Image
 import requests
 from io import BytesIO
 import pytesseract
@@ -132,7 +131,3 @@ def get_image_from_response(response):
         return img
     else:
         return None
-
-
-if __name__ == '__main__':
-    print(compare_image_ssim('img1.jpg', 'img2.jpg'))
