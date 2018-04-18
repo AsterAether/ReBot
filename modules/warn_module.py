@@ -32,7 +32,7 @@ def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, phot
     if poster_id in conf.bot_overlords:
         return 0
 
-    warning = rebot.db.Warning(message_id=message_id,
+    warning = db.Warning(message_id=message_id,
                                chat_id=chat_id,
                                timestamp=datetime.datetime.now(),
                                poster_id=poster_id,
@@ -90,7 +90,7 @@ def issue_warning(rebot, poster_id, poster_name, message_id, chat_id, text, phot
 
 
 def issue_props(rebot, poster_id, poster_name, message_id, chat_id, text, photo, reason):
-    props = rebot.db.Props(message_id=message_id,
+    props = db.Props(message_id=message_id,
                            chat_id=chat_id,
                            timestamp=datetime.datetime.now(),
                            poster_id=poster_id,

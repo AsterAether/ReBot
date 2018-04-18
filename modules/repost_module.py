@@ -50,7 +50,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
     if delete:
         repost = None
         if post_type_id == 1:
-            repost = rebot.db.Repost(filename=filename,
+            repost = db.Repost(filename=filename,
                                      file_hash=p_hash,
                                      text=text,
                                      timestamp=timestamp,
@@ -61,7 +61,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                                      reposter_id=reposter_id
                                      )
         elif post_type_id == 2:
-            repost = rebot.db.Repost(filename_preview=filename,
+            repost = db.Repost(filename_preview=filename,
                                      file_preview_hash=p_hash,
                                      preview_text=text,
                                      url=url,
@@ -119,7 +119,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
         try:
             repost = None
             if post_type_id == 1:
-                repost = rebot.db.Repost(filename=filename,
+                repost = db.Repost(filename=filename,
                                          file_hash=p_hash,
                                          text=text,
                                          timestamp=timestamp,
@@ -130,7 +130,7 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                                          reposter_id=reposter_id
                                          )
             elif post_type_id == 2:
-                repost = rebot.db.Repost(filename_preview=filename,
+                repost = db.Repost(filename_preview=filename,
                                          file_preview_hash=p_hash,
                                          preview_text=text,
                                          url=url,
@@ -233,7 +233,7 @@ def handle_repost(rebot, update):
                                  update, delete_repost, 'IMAGE REPOST', rebot.get_text(update.message), None)
                     break
             if not is_repost:
-                post = rebot.db.Post(filename=filename,
+                post = db.Post(filename=filename,
                                      file_hash=p_hash,
                                      text=text,
                                      timestamp=datetime.datetime.now(),
@@ -291,7 +291,7 @@ def handle_repost(rebot, update):
                                          update, delete_repost, 'URL IMAGE REPOST', rebot.get_text(update.message), url)
                             break
                     if not is_repost:
-                        post = rebot.db.Post(filename_preview=filename,
+                        post = db.Post(filename_preview=filename,
                                              file_preview_hash=p_hash,
                                              preview_text=text,
                                              url=url,
@@ -345,7 +345,7 @@ def handle_import(rebot, update):
             p_hash = img.image_perception_hash(filename)
 
             text = img.image_to_string(filename)
-            post = rebot.db.Post(filename=filename,
+            post = db.Post(filename=filename,
                                  file_hash=p_hash,
                                  text=text,
                                  timestamp=timestamp,
