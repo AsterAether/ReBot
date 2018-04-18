@@ -2,7 +2,6 @@ import sqlalchemy as sqa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float, TEXT
 from sqlalchemy.orm import sessionmaker
-import conf
 import os
 
 Base = declarative_base()
@@ -103,7 +102,7 @@ class Repost(Base):
 class Database:
 
     def __init__(self, driver, db_user, db_pass, db_host, db_name):
-        self.driver = driver
+        self.db_driver = driver
         self.db_user = db_user
         self.db_pass = db_pass
         self.db_host = db_host
@@ -144,7 +143,7 @@ class Database:
 
     def start_engine(self):
         self.engine = sqa.create_engine(
-            conf.db_driver + '://' + conf.db_user + ':' + conf.db_password + '@' + conf.db_host + '/' + conf.db_name,
+            self.db_driver + '://' + self.db_user + ':' + self.db_pass + '@' + self.db_host + '/' + self.db_name,
             echo=True,
             encoding='utf-8')
         self.engine.connect()
@@ -179,9 +178,9 @@ class Database:
         post = self.session.query(Post).filter(Post.url == url).filter(Post.chat_id == chat_id).first()
         return post
 
-    def get_similar_posts(self, hash, chat_id):
+    def get_similar_posts(self, hash, chat_id, hash_threshold):
         self.session.execute(
-            'CALL get_post_per_distance(\"' + hash + '\", ' + str(chat_id) + ',' + str(conf.hash_threshold) + ')')
+            'CALL get_post_per_distance(\"' + hash + '\", ' + str(chat_id) + ',' + str(hash_threshold) + ')')
         results = self.session.execute(
             'SELECT post_id, filename,filename_preview, message_id, text, preview_text, distance, distance_preview FROM tmp_post_per_distance')
         results = results.fetchall()

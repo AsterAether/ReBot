@@ -203,7 +203,7 @@ def handle_repost(rebot, update):
 
             text = img.image_to_string(filename)
 
-            results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id)
+            results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, conf.hash_threshold)
 
             is_repost = False
 
@@ -260,7 +260,7 @@ def handle_repost(rebot, update):
 
                     text = img.image_to_string(filename)
 
-                    results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id)
+                    results = rebot.db_conn.get_similar_posts(p_hash, update.message.chat.id, conf.hash_threshold)
 
                     is_repost = False
 
