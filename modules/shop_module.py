@@ -1,7 +1,12 @@
 import datetime
+
+from eve import Eve
+from eve_sqlalchemy import SQL
+from eve_sqlalchemy.validation import ValidatorSQL
+
 import conf
 import telegram
-
+import threading
 import db
 
 
@@ -24,11 +29,23 @@ def register(rebot):
     rebot.register_update_handle('shop_module', update_handle=handle_update)
     store = rebot.get_module_store('shop_module')
     store['chatmode'] = {}
+    eve_t = threading.Thread(target=start_eve, daemon=True)
+    eve_t.start()
 
 
 def unregister(rebot):
+    store = rebot.get_module_store('shop_module')
     rebot.del_module_commands('shop_module')
     rebot.del_update_handles('shop_module')
+
+
+def start_eve():
+    app = Eve(data=SQL, validator=ValidatorSQL)
+    dbEve = app.data.driver
+    db.Base.metadata.bind = dbEve.engine
+    dbEve.Model = db.Base
+
+    app.run(port=5000, use_reloader=False)
 
 
 def shop_markup(shop_id):
@@ -255,7 +272,8 @@ def cmd_list_shops(rebot, args, update):
             [telegram.InlineKeyboardButton('GET PRODUCTS', callback_data='getproducts#' + str(shop.shop_id))]
         ])
         rebot.bot.send_message(update.message.chat.id,
-                               str(shop.shop_id) + '#S\n*' + shop.name + '* BY ' + poster.name + '\n' + shop.description,
+                               str(
+                                   shop.shop_id) + '#S\n*' + shop.name + '* BY ' + poster.name + '\n' + shop.description,
                                disable_notification=conf.silent,
                                reply_markup=markup,
                                parse_mode=telegram.ParseMode.MARKDOWN)
