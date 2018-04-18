@@ -4,6 +4,7 @@ from eve import Eve
 from eve_sqlalchemy import SQL
 from eve_sqlalchemy.validation import ValidatorSQL
 
+import modules.shop_conf as mod_conf
 import conf
 import telegram
 import threading
@@ -29,8 +30,9 @@ def register(rebot):
     rebot.register_update_handle('shop_module', update_handle=handle_update)
     store = rebot.get_module_store('shop_module')
     store['chatmode'] = {}
-    eve_t = threading.Thread(target=start_eve, daemon=True)
-    eve_t.start()
+    if mod_conf.rest_enabled:
+        eve_t = threading.Thread(target=start_eve, daemon=True)
+        eve_t.start()
 
 
 def unregister(rebot):
