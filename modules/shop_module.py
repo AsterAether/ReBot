@@ -255,9 +255,10 @@ def cmd_list_shops(rebot, args, update):
             [telegram.InlineKeyboardButton('GET PRODUCTS', callback_data='getproducts#' + str(shop.shop_id))]
         ])
         rebot.bot.send_message(update.message.chat.id,
-                               str(shop.shop_id) + '#S\n' + shop.name + ' BY ' + poster.name + '\n' + shop.description,
+                               str(shop.shop_id) + '#S\n*' + shop.name + '* BY ' + poster.name + '\n' + shop.description,
                                disable_notification=conf.silent,
-                               reply_markup=markup)
+                               reply_markup=markup,
+                               parse_mode=telegram.ParseMode.MARKDOWN)
 
 
 def cmd_order(rebot, args, update):
