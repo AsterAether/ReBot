@@ -28,6 +28,7 @@ editshop - REPLY TO A SHOP TO EDIT IT
 editproduct - REPLY TO A PRODUCT TO EDIT IT
 approve - APPROVE AN ORDER
 deny - DENY AN ORDER; ARGUMENTS: [reason...]
-cancel - CANCEL AN ORDER; ARGUMENTS: [reason...]
+ordercancel - CANCEL AN ORDER; ARGUMENTS: [reason...]
 addstore - ADD A NEW STORE BY REPLYING TO A USER
 delproduct - DELETE A PRODUCT AND ALL ITS ORDERS
+cancel - CANCEL AN OPERATION
