@@ -20,10 +20,9 @@ DOMAIN['poster'].update({
 })
 
 DOMAIN['shop'].update({
-    'authorization': None,
-    'related_resources': ['Poster']
+    'authentication': None,
 })
 
 DOMAIN['product'].update({
-    'authorization': None
+    'authentication': None
 })
