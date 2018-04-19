@@ -1,10 +1,11 @@
 import datetime
 import bcrypt
-from flask import jsonify
+from flask import jsonify, request
 from eve import Eve
 from eve.auth import BasicAuth, requires_auth
 from eve_sqlalchemy import SQL
 from eve_sqlalchemy.validation import ValidatorSQL
+from sqlalchemy.exc import IntegrityError
 
 import modules.shop_conf as mod_conf
 import conf
@@ -46,6 +47,7 @@ def register(rebot):
     rebot.register_update_handle('shop_module', update_handle=handle_update)
     store = rebot.get_module_store('shop_module')
     store['chatmode'] = {}
+    store['tele_token'] = {}
     if mod_conf.rest_enabled:
         global db_conn
         global rebot_instance
@@ -96,6 +98,53 @@ def start_eve():
             return jsonify({'success': True})
         else:
             return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
+
+    @app.route('/api/user/register', methods=['POST'])
+    def user_reg():
+        body = request.get_json(force=True)
+        try:
+            username = body.get('username')
+            if username is None:
+                raise AttributeError('BODY HAS NO ATTRIBUTE: username')
+            password = body.get('password')
+            if password is None:
+                raise AttributeError('BODY HAS NO ATTRIBUTE: password')
+            ret = register_user(rebot_instance, username, password,
+                                body.get('telegram_id') if 'telegram_id' in body else None)
+            if ret is not True:
+                return jsonify({'success': False, 'reason': ret})
+            else:
+                return jsonify({'success': True})
+        except AttributeError as e:
+            return jsonify({'success': False, 'reason': str(e)})
+
+    @app.route('/api/user/register-telegram/<tele_id>')
+    @requires_auth('telegram_register')
+    def user_reg_tele(tele_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        ret = register_telegram(rebot_instance, auth_val[1], tele_id)
+        if ret is not True:
+            return jsonify({'success': False, 'reason': ret})
+        else:
+            return jsonify({'success': True})
+
+    @app.route('/api/user/update/password/', methods=['POST'])
+    @requires_auth('user_pass_update')
+    def user_update_pass():
+        auth_val = app.auth.get_request_auth_value().split('#')
+
+        body = request.get_json(force=True)
+        try:
+            password = body.get('password')
+            if password is None:
+                raise AttributeError('BODY HAS NO ATTRIBUTE: password')
+            ret = change_password(db_conn, auth_val[1], password)
+            if ret is not True:
+                return jsonify({'success': False, 'reason': ret})
+            else:
+                return jsonify({'success': True})
+        except AttributeError as e:
+            return jsonify({'success': False, 'reason': str(e)})
 
     @app.route('/api/order/approve/<order_id>')
     @requires_auth('order_approve')
@@ -189,7 +238,75 @@ def start_eve():
     db.Base.metadata.bind = db_eve.engine
     db_eve.Model = db.Base
 
-    app.run(port=5000, host='0.0.0.0', use_reloader=False)
+    app.run(port=mod_conf.rest_port, host=mod_conf.rest_host, use_reloader=False)
+
+
+def register_user(rebot, username, password, poster_id=None):
+    db_conn = rebot.db_conn
+    try:
+        user = db_conn.get_user(username)
+        if user:
+            raise ValueError
+
+        lposter = db_conn.get_lowest_poster().poster_id - 1
+        new_poster_id = lposter - 1 if lposter < 0 else -1
+        db_conn.get_poster(new_poster_id, username)
+        user = db.User(username=username,
+                       password=bcrypt.hashpw(password.encode('utf8'), bcrypt.gensalt()).decode('utf8'),
+                       poster_id=new_poster_id)
+
+        db_conn.save(user)
+        if poster_id is not None:
+            return register_telegram(rebot, username, poster_id)
+        return True
+    except ValueError:
+        return 'USERNAME ALREADY TAKEN'
+
+
+def register_telegram(rebot, username, poster_id):
+    db_conn = rebot.db_conn
+    user = db_conn.get_user(username)
+    if not user:
+        return 'NOT A USER'
+
+    if db_conn.get_user_by_poster(poster_id):
+        return 'ID ALREADY REGISTERED'
+
+    try:
+        token = bcrypt.gensalt().decode('utf8')
+        markup = telegram.InlineKeyboardMarkup([[
+            telegram.InlineKeyboardButton('ALLOW',
+                                          callback_data='teleuser#' + token),
+            telegram.InlineKeyboardButton('DENY',
+                                          callback_data='teledeny#' + token)
+        ]])
+        rebot.bot.send_message(poster_id,
+                               'USER *' + username + '* HAS REQUESTED TO LINK THIS TELEGRAM USER TO THEIR ACCOUNT',
+                               disable_notification=conf.silent,
+                               reply_markup=markup,
+                               parse_mode=telegram.ParseMode.MARKDOWN)
+        store = rebot.get_module_store('shop_module')
+        store['tele_token'][token] = (username, poster_id)
+        return True
+    except telegram.error.BadRequest:
+        return 'ERROR MESSAGING USER'
+    # try:
+    #     user.poster_id = poster_id
+    #     db_conn.get_poster(poster_id, username)
+    #     db_conn.save(user)
+    #     return True
+    # except IntegrityError:
+    #     return False
+
+
+def change_password(db_conn, username, password):
+    user = db_conn.get_user(username)
+    try:
+        user.password = bcrypt.hashpw(password.encode('utf8'), bcrypt.gensalt()).decode('utf8')
+        db_conn.save(user)
+        return True
+    except IntegrityError:
+        return False
 
 
 def shop_markup(shop_id):
@@ -353,12 +470,41 @@ def handle_update(rebot, update: telegram.Update):
 
                 rebot.bot.send_message(chat_id=chat_id, message_id=query.message.message_id,
                                        text='PLEASE SEND ME THE AMOUNT YOU WANT TO ORDER\nTO CANCEL CALL /cancel')
-            if cmd == 'addproduct':
+            elif cmd == 'teleuser':
+                token = args[0]
+
+                try:
+                    username, poster_id = rebot.get_module_store('shop_module')['tele_token'][token]
+
+                    rebot.db_conn.get_poster(poster_id, query.from_user.name)
+
+                    user = rebot.db_conn.get_user(username)
+                    user.poster_id = poster_id
+                    rebot.db_conn.save(user)
+
+                    query.message.delete()
+                    rebot.bot.send_message(chat_id=chat_id,
+                                           text='REQUEST ACCEPTED')
+                except KeyError:
+                    query.message.delete()
+                    rebot.bot.send_message(chat_id=chat_id,
+                                           text='TOKEN NOT FOUND')
+            elif cmd == 'teledeny':
+                token = args[0]
+
+                try:
+                    del rebot.get_module_store('shop_module')['tele_token'][token]
+                except KeyError:
+                    pass
+                query.message.delete()
+                rebot.bot.send_message(chat_id=chat_id,
+                                       text='REQUEST DENIED')
+            elif cmd == 'addproduct':
                 shop_id = args[0]
 
                 prod = db.Product(name='NEW PRODUCT', price=0, comment='[ ]', shop_id=shop_id)
                 rebot.db_conn.save(prod)
-                rebot.bot.send_message(chat_id=chat_id, message_id=query.message.message_id,
+                rebot.bot.send_message(chat_id=chat_id,
                                        text=str(prod.product_id) + '#P\nPRODUCT ADDED')
             elif cmd == 'seditname':
                 shop_id = args[0]

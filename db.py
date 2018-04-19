@@ -136,7 +136,7 @@ class User(Base):
 
     username = Column(String(50), primary_key=True)
     password = Column(String(255), nullable=False)
-    poster_id = Column(Integer, ForeignKey('poster.poster_id'))
+    poster_id = Column(Integer, ForeignKey('poster.poster_id'), unique=True)
 
 
 def dump_datetime(value):
@@ -180,6 +180,9 @@ class Database:
         self.stop_session()
         self.stop_engine()
 
+    def get_user_by_poster(self, poster_id):
+        return self.session.query(User).filter(User.poster_id == poster_id).first()
+
     def get_user(self, username):
         return self.session.query(User).filter(User.username == username).first()
 
@@ -190,6 +193,9 @@ class Database:
             return None
         else:
             return result[0]
+
+    def get_lowest_poster(self):
+        return self.session.query(Poster).order_by(Poster.poster_id).first()
 
     def start_engine(self):
         self.engine = sqa.create_engine(
