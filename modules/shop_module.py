@@ -63,6 +63,7 @@ def unregister(rebot):
 def start_eve():
     global app
     global db_conn
+    global rebot_instance
     app = Eve(data=SQL, validator=ValidatorSQL, auth=BCryptAuth)
 
     @app.route('/api/login/')
@@ -71,28 +72,66 @@ def start_eve():
         return jsonify({'success': True})
 
     @app.route('/api/order/<prod_id>/<anz>/<comment>')
-    @requires_auth('login')
+    @requires_auth('order')
     def order(prod_id, anz, comment):
         auth_val = app.auth.get_request_auth_value().split('#')
         customer_id = int(auth_val[0])
         customer = db_conn.get_poster(customer_id, None)
 
         try:
-            owner, product, shop = db_conn.get_owner(int(prod_id))
-            order = db.Order(timestamp_ordered=datetime.datetime.now(), comment=comment, product_id=prod_id,
-                             amount=int(anz),
-                             customer=customer.poster_id)
-            db_conn.save(order)
+            ordered = order_product(rebot_instance, prod_id, anz, comment, customer)
 
-            if owner >= 0:
-                rebot_instance.bot.send_message(owner, str(order.order_id) + '#O\n' +
-                                                'ORDER RECEIVED FROM ' +
-                                                (customer.name if customer.name else auth_val[1]) + '\n' + str(
-                    order.amount) + 'x' + product.name + '\n' + order.comment, disable_notification=conf.silent)
-
-            return jsonify({'success': False, 'order_id': order.order_id})
+            return jsonify({'success': False, 'order_id': ordered.order_id})
         except ValueError as e:
             return jsonify({'success': False, 'reason': str(e)})
+
+    @app.route('/api/order/cancel/<order_id>/<reason>')
+    @requires_auth('order_cancel')
+    def order_cancel(order_id, reason):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        customer_id = int(auth_val[0])
+        customer = db_conn.get_poster(customer_id, None)
+
+        if cancel_order(rebot_instance, order_id, reason, customer.poster_id):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
+
+    @app.route('/api/order/approve/<order_id>')
+    @requires_auth('order_approve')
+    def order_approve(order_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        customer_id = int(auth_val[0])
+        customer = db_conn.get_poster(customer_id, None)
+
+        if approve_order(rebot_instance, order_id, customer.poster_id):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
+
+    @app.route('/api/order/finish/<order_id>')
+    @requires_auth('order_finish')
+    def order_finish(order_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        customer_id = int(auth_val[0])
+        customer = db_conn.get_poster(customer_id, None)
+
+        if finish_order(rebot_instance, order_id, customer.poster_id):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
+
+    @app.route('/api/order/deny/<order_id>/<reason>')
+    @requires_auth('order_deny')
+    def order_deny(order_id, reason):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        customer_id = int(auth_val[0])
+        customer = db_conn.get_poster(customer_id, None)
+
+        if deny_order(rebot_instance, order_id, reason, customer.poster_id):
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
 
     @app.route('/api/orders/unapproved/')
     @requires_auth('orders')
@@ -384,6 +423,23 @@ def cmd_list_shops(rebot, args, update):
                                parse_mode=telegram.ParseMode.MARKDOWN)
 
 
+def order_product(rebot, p_id, amount, comment, customer):
+    order = db.Order(timestamp_ordered=datetime.datetime.now(), comment=comment, product_id=p_id, amount=amount,
+                     customer=customer.poster_id)
+
+    rebot.db_conn.save(order)
+
+    owner, product, shop = rebot.db_conn.get_owner(p_id)
+
+    if owner >= 0:
+        rebot.bot.send_message(owner, str(order.order_id) + '#O\n' +
+                               'ORDER RECEIVED FROM ' +
+                               customer.name + '\n' + str(order.amount) + 'x' + product.name + '\n' +
+                               order.comment,
+                               disable_notification=conf.silent)
+    return order
+
+
 def cmd_order(rebot, args, update):
     try:
         p_text = update.message.reply_to_message.text
@@ -394,20 +450,10 @@ def cmd_order(rebot, args, update):
             raise ValueError('Too few arguments')
         comment = ' '.join(args[1:])
 
-        order = db.Order(timestamp_ordered=datetime.datetime.now(), comment=comment, product_id=p_id, amount=amount,
-                         customer=rebot.db_conn.get_poster(update.message.from_user.id,
-                                                           update.message.from_user.name).poster_id)
+        order = order_product(rebot, p_id, amount, comment, rebot.db_conn.get_poster(update.message.from_user.id,
+                                                                                     update.message.from_user.name))
 
-        rebot.db_conn.save(order)
-
-        rebot.bot.send_message(update.message.chat.id, 'ORDER RECEIVED', disable_notification=conf.silent)
-
-        owner, product, shop = rebot.db_conn.get_owner(p_id)
-
-        rebot.bot.send_message(owner, str(order.order_id) + '#O\n' +
-                               'ORDER RECEIVED FROM ' +
-                               update.message.from_user.name + '\n' + str(order.amount) + 'x' + product.name + '\n' +
-                               order.comment,
+        rebot.bot.send_message(update.message.chat.id, str(order.order_id) + '#O\nORDER RECEIVED',
                                disable_notification=conf.silent)
 
     except (AttributeError, KeyError, ValueError, IndexError) as e:
@@ -430,26 +476,33 @@ def cmd_list_orders(rebot, args, update):
     rebot.bot.send_message(update.message.chat.id, 'END;ORDERS---------------------')
 
 
+def cancel_order(rebot, order_id, reason, issuer):
+    order = rebot.db_conn.get_order(order_id)
+
+    owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
+
+    if order.customer != issuer and issuer not in conf.bot_overlords:
+        return False
+
+    rebot.db_conn.del_order(order.order_id)
+
+    if owner >= 0:
+        rebot.bot.send_message(owner,
+                               'ORDER CANCELED: ' + str(order.amount) + 'x' + prod.name + '\n' +
+                               order.comment + '\nREASON: ' + reason,
+                               disable_notification=conf.silent)
+    return True
+
+
 def cmd_order_cancel(rebot, args, update):
     try:
         o_text = update.message.reply_to_message.text
         o_id = o_text.split('#O')[0]
 
-        order = rebot.db_conn.get_order(o_id)
-
-        owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
-
-        if order.customer != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
+        if not cancel_order(rebot, o_id, ' '.join(args), update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE ISSUER OF THIS ORDER',
                                    disable_notification=conf.silent)
             return
-
-        rebot.bot.send_message(owner,
-                               'ORDER CANCELED: ' + str(order.amount) + 'x' + prod.name + '\n' +
-                               order.comment + '\nREASON: ' + ' '.join(args),
-                               disable_notification=conf.silent)
-
-        rebot.db_conn.del_order(order.order_id)
 
         rebot.bot.send_message(update.message.chat.id, 'ORDER CANCELED', disable_notification=conf.silent)
     except (AttributeError, KeyError, ValueError, IndexError) as e:
@@ -487,27 +540,34 @@ def cmd_list_my_orders(rebot, args, update):
     rebot.bot.send_message(update.message.chat.id, 'END;ORDERS---------------------')
 
 
+def approve_order(rebot, order_id, issuer):
+    order = rebot.db_conn.get_order(order_id)
+
+    owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
+
+    if owner != issuer and issuer not in conf.bot_overlords:
+        return False
+
+    order.timestamp_approved = datetime.datetime.now()
+    rebot.db_conn.save(order)
+
+    if order.customer >= 0:
+        rebot.bot.send_message(order.customer,
+                               'ORDER APPROVED: ' + str(order.amount) + 'x' + prod.name + '\n' +
+                               order.comment,
+                               disable_notification=conf.silent)
+    return True
+
+
 def cmd_approve(rebot, args, update):
     try:
         o_text = update.message.reply_to_message.text
         o_id = o_text.split('#O')[0]
 
-        order = rebot.db_conn.get_order(o_id)
-
-        owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
-
-        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
+        if not approve_order(rebot, o_id, update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
-
-        rebot.bot.send_message(order.customer,
-                               'ORDER APPROVED: ' + str(order.amount) + 'x' + prod.name + '\n' +
-                               order.comment,
-                               disable_notification=conf.silent)
-
-        order.timestamp_approved = datetime.datetime.now()
-        rebot.db_conn.save(order)
 
         rebot.bot.send_message(update.message.chat.id, 'ORDER APPROVED', disable_notification=conf.silent)
     except (AttributeError, KeyError, ValueError, IndexError) as e:
@@ -515,26 +575,33 @@ def cmd_approve(rebot, args, update):
         rebot.bot.send_message(update.message.chat.id, 'REPLY TO A ORDER TO APPROVE IT')
 
 
+def deny_order(rebot, order_id, reason, issuer):
+    order = rebot.db_conn.get_order(order_id)
+
+    owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
+
+    if owner != issuer and issuer not in conf.bot_overlords:
+        return False
+
+    rebot.db_conn.del_order(order.order_id)
+
+    if order.customer >= 0:
+        rebot.bot.send_message(order.customer,
+                               'ORDER DENIED: ' + str(order.amount) + 'x' + prod.name + '\n' +
+                               order.comment + '\nREASON: ' + reason,
+                               disable_notification=conf.silent)
+    return True
+
+
 def cmd_deny(rebot, args, update):
     try:
         o_text = update.message.reply_to_message.text
         o_id = o_text.split('#O')[0]
 
-        order = rebot.db_conn.get_order(o_id)
-
-        owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
-
-        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
+        if not deny_order(rebot, o_id, ' '.join(args), update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
-
-        rebot.bot.send_message(order.customer,
-                               'ORDER DENIED: ' + str(order.amount) + 'x' + prod.name + '\n' +
-                               order.comment + '\nREASON: ' + ' '.join(args),
-                               disable_notification=conf.silent)
-
-        rebot.db_conn.del_order(order.order_id)
 
         rebot.bot.send_message(update.message.chat.id, 'ORDER DENIED', disable_notification=conf.silent)
     except (AttributeError, KeyError, ValueError, IndexError) as e:
@@ -542,27 +609,34 @@ def cmd_deny(rebot, args, update):
         rebot.bot.send_message(update.message.chat.id, 'REPLY TO A ORDER TO APPROVE IT')
 
 
+def finish_order(rebot, order_id, issuer):
+    order = rebot.db_conn.get_order(order_id)
+
+    owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
+
+    if owner != issuer and issuer not in conf.bot_overlords:
+        return False
+
+    order.timestamp_done = datetime.datetime.now()
+    rebot.db_conn.save(order)
+
+    if order.customer >= 0:
+        rebot.bot.send_message(order.customer,
+                               'ORDER FINISHED: ' + str(order.amount) + 'x' + prod.name + '\n' +
+                               order.comment,
+                               disable_notification=conf.silent)
+    return True
+
+
 def cmd_finish(rebot, args, update):
     try:
         o_text = update.message.reply_to_message.text
         o_id = o_text.split('#O')[0]
 
-        order = rebot.db_conn.get_order(o_id)
-
-        owner, prod, shop = rebot.db_conn.get_owner(order.product_id)
-
-        if owner != update.message.from_user.id and update.message.from_user.id not in conf.bot_overlords:
+        if not finish_order(rebot, o_id, update.message.from_user.id):
             rebot.bot.send_message(update.message.chat.id, 'YOU ARE NOT THE OWNER OF THIS STORE',
                                    disable_notification=conf.silent)
             return
-
-        rebot.bot.send_message(order.customer,
-                               'ORDER FINISHED: ' + str(order.amount) + 'x' + prod.name + '\n' +
-                               order.comment,
-                               disable_notification=conf.silent)
-
-        order.timestamp_done = datetime.datetime.now()
-        rebot.db_conn.save(order)
 
         rebot.bot.send_message(update.message.chat.id, 'ORDER FINISHED', disable_notification=conf.silent)
     except (AttributeError, KeyError, ValueError, IndexError) as e:
