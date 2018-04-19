@@ -1,6 +1,8 @@
 import datetime
-
+import bcrypt
+from flask import jsonify
 from eve import Eve
+from eve.auth import BasicAuth, requires_auth
 from eve_sqlalchemy import SQL
 from eve_sqlalchemy.validation import ValidatorSQL
 
@@ -9,6 +11,20 @@ import conf
 import telegram
 import threading
 import db
+
+db_conn = None
+app = None
+rebot_instance = None
+
+
+class BCryptAuth(BasicAuth):
+    def check_auth(self, username, password, allowed_roles, resource, method):
+        user = db_conn.get_user(username)
+        print('AUTH REQUEST WITH: ' + username + '+' + password)
+        if user and user.poster_id:
+            self.set_request_auth_value(str(user.poster_id) + '#' + user.username)
+        return user and bcrypt.hashpw(password.encode('utf8'), user.password.encode('utf8')).decode(
+            'utf8') == user.password
 
 
 def register(rebot):
@@ -31,23 +47,110 @@ def register(rebot):
     store = rebot.get_module_store('shop_module')
     store['chatmode'] = {}
     if mod_conf.rest_enabled:
+        global db_conn
+        global rebot_instance
+        db_conn = rebot.db_conn
+        rebot_instance = rebot
         eve_t = threading.Thread(target=start_eve, daemon=True)
         eve_t.start()
 
 
 def unregister(rebot):
-    store = rebot.get_module_store('shop_module')
     rebot.del_module_commands('shop_module')
     rebot.del_update_handles('shop_module')
 
 
 def start_eve():
-    app = Eve(data=SQL, validator=ValidatorSQL)
-    dbEve = app.data.driver
-    db.Base.metadata.bind = dbEve.engine
-    dbEve.Model = db.Base
+    global app
+    global db_conn
+    app = Eve(data=SQL, validator=ValidatorSQL, auth=BCryptAuth)
 
-    app.run(port=5000, use_reloader=False)
+    @app.route('/api/login/')
+    @requires_auth('login')
+    def login_check():
+        return jsonify({'success': True})
+
+    @app.route('/api/order/<prod_id>/<anz>/<comment>')
+    @requires_auth('login')
+    def order(prod_id, anz, comment):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        customer_id = int(auth_val[0])
+        customer = db_conn.get_poster(customer_id, None)
+
+        try:
+            owner, product, shop = db_conn.get_owner(int(prod_id))
+            order = db.Order(timestamp_ordered=datetime.datetime.now(), comment=comment, product_id=prod_id,
+                             amount=int(anz),
+                             customer=customer.poster_id)
+            db_conn.save(order)
+
+            if owner >= 0:
+                rebot_instance.bot.send_message(owner, str(order.order_id) + '#O\n' +
+                                                'ORDER RECEIVED FROM ' +
+                                                (customer.name if customer.name else auth_val[1]) + '\n' + str(
+                    order.amount) + 'x' + product.name + '\n' + order.comment, disable_notification=conf.silent)
+
+            return jsonify({'success': False, 'order_id': order.order_id})
+        except ValueError as e:
+            return jsonify({'success': False, 'reason': str(e)})
+
+    @app.route('/api/orders/unapproved/')
+    @requires_auth('orders')
+    def user_unapproved_orders():
+        auth_val = app.auth.get_request_auth_value().split('#')
+        owner = int(auth_val[0])
+        if not owner:
+            return jsonify([])
+        unap = db_conn.get_unapproved_orders(owner)
+        ret_list = []
+
+        # rebot.bot.send_message(update.message.chat.id, str(order['order_id']) + '#O\nFROM ' + customer.name + ':\n' +
+        #                        str(order['amount']) + 'x' + order['name'] + '\n' + order['comment'])
+        for order in unap:
+            # customer = db_conn.get_poster(row['customer'], None)
+            obj = {'order_id': order['order_id'],
+                   'amount': order['amount'],
+                   'comment': order['comment'],
+                   'product_id': order['product_id'],
+                   'customer': order['customer'],
+                   'timestamp_ordered': db.dump_datetime(order['timestamp_ordered']),
+                   'timestamp_done': db.dump_datetime(order['timestamp_done']),
+                   'timestamp_approved': db.dump_datetime(order['timestamp_approved'])
+                   }
+            ret_list.append(obj)
+        return jsonify(json_list=ret_list)
+
+    @app.route('/api/orders/open/')
+    @requires_auth('orders')
+    def user_open_orders():
+        auth_val = app.auth.get_request_auth_value().split('#')
+        owner = int(auth_val[0])
+        if not owner:
+            return jsonify([])
+        unap = db_conn.get_open_orders(owner)
+        ret_list = []
+
+        # rebot.bot.send_message(update.message.chat.id, str(order['order_id']) + '#O\nFROM ' + customer.name + ':\n' +
+        #                        str(order['amount']) + 'x' + order['name'] + '\n' + order['comment'])
+        for order in unap:
+            # customer = db_conn.get_poster(row['customer'], None)
+            obj = {'order_id': order['order_id'],
+                   'amount': order['amount'],
+                   'comment': order['comment'],
+                   'product_id': order['product_id'],
+                   'customer': order['customer'],
+                   'timestamp_ordered': db.dump_datetime(order['timestamp_ordered']),
+                   'timestamp_done': db.dump_datetime(order['timestamp_done']),
+                   'timestamp_approved': db.dump_datetime(order['timestamp_approved'])
+                   }
+            ret_list.append(obj)
+        return jsonify(json_list=ret_list)
+
+    db_eve = app.data.driver
+    db.Base.metadata.bind = db_eve.engine
+    db_eve.Model = db.Base
+
+    app.run(port=5000, host='0.0.0.0', use_reloader=False)
 
 
 def shop_markup(shop_id):

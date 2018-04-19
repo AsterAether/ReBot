@@ -25,7 +25,8 @@ class ReBot:
             'bot':
                 {'start': ReBot.cmd_start,
                  'help': ReBot.cmd_help,
-                 'userreg': ReBot.cmd_userreg}
+                 'userreg': ReBot.cmd_userreg,
+                 'userid': ReBot.cmd_user_id}
         }
         # Admin CMDs (silent):
         self.admin_commands = {
@@ -219,6 +220,11 @@ class ReBot:
             msg_text = message.caption
 
         return msg_text
+
+    @staticmethod
+    def cmd_user_id(rebot, args, update):
+        rebot.bot.send_message(update.message.chat.id, 'YOUR ID IS: ' + str(update.message.from_user.id),
+                               disable_notification=conf.silent)
 
     @staticmethod
     def cmd_start(rebot, args, update):

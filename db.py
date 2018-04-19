@@ -131,6 +131,21 @@ class Order(Base):
     amount = Column(Integer)
 
 
+class User(Base):
+    __tablename__ = 'user'
+
+    username = Column(String(50), primary_key=True)
+    password = Column(String(255), nullable=False)
+    poster_id = Column(Integer, ForeignKey('poster.poster_id'))
+
+
+def dump_datetime(value):
+    """Deserialize datetime object into string form for JSON processing."""
+    if value is None:
+        return None
+    return [value.strftime("%Y-%m-%d"), value.strftime("%H:%M:%S")]
+
+
 class Database:
 
     def __init__(self, driver, db_user, db_pass, db_host, db_name):
@@ -164,6 +179,9 @@ class Database:
 
         self.stop_session()
         self.stop_engine()
+
+    def get_user(self, username):
+        return self.session.query(User).filter(User.username == username).first()
 
     def get_random_post(self, chat_id):
         result = self.session.execute(
@@ -306,12 +324,12 @@ class Database:
 
     def get_open_orders(self, poster_id):
         return self.session.execute(
-            'SELECT order_id, customer, o.comment as comment, p.name as name, amount FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
+            'SELECT order_id, customer, o.comment as comment, p.name as name,p.product_id as product_id, amount,timestamp_ordered,timestamp_done,timestamp_approved FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
                 poster_id) + ' AND o.timestamp_done IS NULL AND o.timestamp_approved IS NOT NULL').fetchall()
 
     def get_unapproved_orders(self, poster_id):
         return self.session.execute(
-            'SELECT order_id, customer, o.comment as comment, p.name as name, amount FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
+            'SELECT order_id, customer, o.comment as comment, p.name as name,p.product_id as product_id, amount,timestamp_ordered,timestamp_done,timestamp_approved FROM shop INNER JOIN product p on shop.shop_id = p.shop_id INNER JOIN `order` o ON p.product_id = o.product_id WHERE owner = ' + str(
                 poster_id) + ' AND o.timestamp_done IS NULL AND o.timestamp_approved IS NULL').fetchall()
 
     def get_orders(self, customer):
