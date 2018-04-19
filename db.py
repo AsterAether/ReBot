@@ -1,7 +1,7 @@
 import sqlalchemy as sqa
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, CHAR, Float, TEXT, and_
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, relationship
 import os
 
 Base = declarative_base()
@@ -106,6 +106,7 @@ class Shop(Base):
     name = Column(String(100))
     owner = Column(Integer, ForeignKey('poster.poster_id'))
     description = Column(String(255))
+    products = relationship('Product', backref='shop_id')
 
 
 class Product(Base):

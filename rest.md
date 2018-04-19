@@ -31,9 +31,9 @@ Body must contain (as JSON):
 Updates the password for the currently logged in user.
 ## Shop
 
-### /api/shops
+### /api/shop
 Returns all Shops, and supports Eve-SQLAlchemy queries.
-### /api/products
+### /api/product
 Returns all Products, and supports Eve-SQLAlchemy queries.
 ### /api/order/[_prod_id_]/[_anz_]/[_comment_]
 Order a product as the currently logged in user.

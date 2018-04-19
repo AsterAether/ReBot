@@ -10,14 +10,14 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 RESOURCE_METHODS = ['GET', 'POST']
 
 DOMAIN = DomainConfig({
-    'shops': ResourceConfig(db.Shop),
-    'products': ResourceConfig(db.Product)
+    'shop': ResourceConfig(db.Shop),
+    'product': ResourceConfig(db.Product)
 }).render()
 
-DOMAIN['shops'].update({
+DOMAIN['shop'].update({
     'authorization': None
 })
 
-DOMAIN['products'].update({
+DOMAIN['product'].update({
     'authorization': None
 })
