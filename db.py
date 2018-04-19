@@ -45,6 +45,7 @@ class Poster(Base):
 
     poster_id = Column(Integer, primary_key=True)
     name = Column(String(length=100))
+    shops = relationship('Shop', backref='owner_ref')
 
 
 class Reposter(Base):

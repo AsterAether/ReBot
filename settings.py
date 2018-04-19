@@ -10,12 +10,18 @@ SQLALCHEMY_TRACK_MODIFICATIONS = False
 RESOURCE_METHODS = ['GET', 'POST']
 
 DOMAIN = DomainConfig({
+    'poster': ResourceConfig(db.Poster),
     'shop': ResourceConfig(db.Shop),
     'product': ResourceConfig(db.Product)
 }).render()
 
+DOMAIN['poster'].update({
+    'resource_methods': []
+})
+
 DOMAIN['shop'].update({
-    'authorization': None
+    'authorization': None,
+    'related_resources': ['Poster']
 })
 
 DOMAIN['product'].update({
