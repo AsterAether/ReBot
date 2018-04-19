@@ -106,7 +106,7 @@ class Shop(Base):
     name = Column(String(100))
     owner = Column(Integer, ForeignKey('poster.poster_id'))
     description = Column(String(255))
-    products = relationship('Product', backref='shop_id')
+    products = relationship('Product', backref='shop')
 
 
 class Product(Base):
