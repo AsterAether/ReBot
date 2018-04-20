@@ -83,7 +83,7 @@ def start_eve():
         try:
             ordered = order_product(rebot_instance, prod_id, anz, comment, customer)
 
-            return jsonify({'success': False, 'order_id': ordered.order_id})
+            return jsonify({'success': True, 'order_id': ordered.order_id})
         except ValueError as e:
             return jsonify({'success': False, 'reason': str(e)})
 
