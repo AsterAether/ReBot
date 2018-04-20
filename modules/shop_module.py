@@ -195,6 +195,7 @@ def start_eve():
         # rebot.bot.send_message(update.message.chat.id, str(order['order_id']) + '#O\nFROM ' + customer.name + ':\n' +
         #                        str(order['amount']) + 'x' + order['name'] + '\n' + order['comment'])
         for order in unap:
+            product = db_conn.get_product(order.product_id)
             # customer = db_conn.get_poster(row['customer'], None)
             obj = {'order_id': order['order_id'],
                    'amount': order['amount'],
@@ -203,7 +204,14 @@ def start_eve():
                    'customer': order['customer'],
                    'timestamp_ordered': db.dump_datetime(order['timestamp_ordered']),
                    'timestamp_done': db.dump_datetime(order['timestamp_done']),
-                   'timestamp_approved': db.dump_datetime(order['timestamp_approved'])
+                   'timestamp_approved': db.dump_datetime(order['timestamp_approved']),
+                   'product': {
+                       'product_id': product.product_id,
+                       'name': product.name,
+                       'shop': product.shop_id,
+                       'comment': product.comment,
+                       'price': product.price
+                   }
                    }
             ret_list.append(obj)
         return jsonify(json_list=ret_list)
@@ -221,6 +229,7 @@ def start_eve():
         # rebot.bot.send_message(update.message.chat.id, str(order['order_id']) + '#O\nFROM ' + customer.name + ':\n' +
         #                        str(order['amount']) + 'x' + order['name'] + '\n' + order['comment'])
         for order in unap:
+            product = db_conn.get_product(order.product_id)
             # customer = db_conn.get_poster(row['customer'], None)
             obj = {'order_id': order['order_id'],
                    'amount': order['amount'],
@@ -229,7 +238,48 @@ def start_eve():
                    'customer': order['customer'],
                    'timestamp_ordered': db.dump_datetime(order['timestamp_ordered']),
                    'timestamp_done': db.dump_datetime(order['timestamp_done']),
-                   'timestamp_approved': db.dump_datetime(order['timestamp_approved'])
+                   'timestamp_approved': db.dump_datetime(order['timestamp_approved']),
+                   'product': {
+                       'product_id': product.product_id,
+                       'name': product.name,
+                       'shop': product.shop_id,
+                       'comment': product.comment,
+                       'price': product.price
+                   }
+                   }
+            ret_list.append(obj)
+        return jsonify(json_list=ret_list)
+
+    @app.route('/api/orders/my/')
+    @requires_auth('orders')
+    def user_my_orders():
+        auth_val = app.auth.get_request_auth_value().split('#')
+        issuer = int(auth_val[0])
+        if not issuer:
+            return jsonify([])
+        my = db_conn.get_orders(issuer)
+        ret_list = []
+
+        # rebot.bot.send_message(update.message.chat.id, str(order['order_id']) + '#O\nFROM ' + customer.name + ':\n' +
+        #                        str(order['amount']) + 'x' + order['name'] + '\n' + order['comment'])
+        for order in my:
+            product = db_conn.get_product(order.product_id)
+            # customer = db_conn.get_poster(row['customer'], None)
+            obj = {'order_id': order.order_id,
+                   'amount': order.amount,
+                   'comment': order.comment,
+                   'product_id': order.product_id,
+                   'customer': order.customer,
+                   'timestamp_ordered': db.dump_datetime(order.timestamp_ordered),
+                   'timestamp_done': db.dump_datetime(order.timestamp_done),
+                   'timestamp_approved': db.dump_datetime(order.timestamp_approved),
+                   'product': {
+                       'product_id': product.product_id,
+                       'name': product.name,
+                       'shop': product.shop_id,
+                       'comment': product.comment,
+                       'price': product.price
+                   }
                    }
             ret_list.append(obj)
         return jsonify(json_list=ret_list)
