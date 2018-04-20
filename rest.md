@@ -33,8 +33,16 @@ Updates the password for the currently logged in user.
 
 ### /api/shop
 Returns all Shops, and supports Eve-SQLAlchemy queries.
+### /api/add/product/[_shop_id_]
+
+### /api/edit/shop/[_shop_id_]
+
 ### /api/product
 Returns all Products, and supports Eve-SQLAlchemy queries.
+### /api/edit/product/[_product_id_]
+
+### /api/delete/product/[_product_id_]
+
 ### /api/order/[_prod_id_]/[_anz_]/[_comment_]
 Order a product as the currently logged in user.
 ### /api/order/cancel/[_order_id_]/[_reason_]

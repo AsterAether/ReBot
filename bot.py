@@ -203,6 +203,8 @@ class ReBot:
         return self.chat_config[chat_id][module + '_enabled']
 
     def get_chat_conf(self, chat_id, conf):
+        if conf not in self.chat_config[chat_id]:
+            return False
         return self.chat_config[chat_id][conf]
 
     @staticmethod

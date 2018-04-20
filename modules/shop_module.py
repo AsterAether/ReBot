@@ -182,6 +182,104 @@ def start_eve():
         else:
             return jsonify({'success': False, 'reason': 'NOT AUTHORIZED'})
 
+    @app.route('/api/edit/shop/<shop_id>', methods=['POST'])
+    @requires_auth('shop_edit')
+    def edit_shop(shop_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        owner = int(auth_val[0])
+        shop = db_conn.get_shop(shop_id)
+
+        if shop.owner != owner:
+            return jsonify({'success': False, 'reason': 'NOT OWNER'})
+
+        body = request.get_json(force=True)
+
+        shop.name = body.get('name') if body.get('name') is not None else shop.name
+        shop.description = body.get('description') if body.get('description') is not None else shop.name
+
+        db_conn.save(shop)
+
+        return jsonify({'success': True, 'shop': {
+            'name': shop.name,
+            'description': shop.description,
+            'shop_id': shop.shop_id,
+            'owner': shop.owner
+        }})
+
+    @app.route('/api/edit/product/<product_id>', methods=['POST'])
+    @requires_auth('product_edit')
+    def edit_product(product_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        issuer = int(auth_val[0])
+        shop_owner, product, shop = db_conn.get_owner(product_id)
+
+        if shop_owner != issuer:
+            return jsonify({'success': False, 'reason': 'NOT OWNER'})
+
+        body = request.get_json(force=True)
+
+        product.name = body.get('name') if body.get('name') is not None else product.name
+        product.comment = body.get('comment') if body.get('comment') is not None else product.comment
+        try:
+            product.price = float(body.get('price')) if body.get('price') is not None else product.price
+        except ValueError:
+            return jsonify({'success': False, 'reason': 'NOT A NUMBER'})
+
+        db_conn.save(product)
+
+        return jsonify({'success': True, 'product': {
+            'product_id': product.product_id,
+            'name': product.name,
+            'shop': product.shop_id,
+            'comment': product.comment,
+            'price': product.price
+        }})
+
+    @app.route('/api/add/product/<shop_id>')
+    @requires_auth('product_add')
+    def add_product(shop_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        issuer = int(auth_val[0])
+        shop = db_conn.get_shop(shop_id)
+
+        if shop.owner != issuer:
+            return jsonify({'success': False, 'reason': 'NOT OWNER'})
+
+        product = db.Product(name='NEW PRODUCT', price=0, comment='[ ]')
+
+        body = request.get_json(force=True)
+
+        product.name = body.get('name') if body.get('name') is not None else product.name
+        product.comment = body.get('comment') if body.get('comment') is not None else product.comment
+        try:
+            product.price = float(body.get('price')) if body.get('price') is not None else product.price
+        except ValueError:
+            return jsonify({'success': False, 'reason': 'NOT A NUMBER'})
+
+        db_conn.save(product)
+
+        return jsonify({'success': True, 'product': {
+            'product_id': product.product_id,
+            'name': product.name,
+            'shop': product.shop_id,
+            'comment': product.comment,
+            'price': product.price
+        }})
+
+    @app.route('/api/delete/product/<product_id>')
+    @requires_auth('product_delete')
+    def delete_product(product_id):
+        auth_val = app.auth.get_request_auth_value().split('#')
+        issuer = int(auth_val[0])
+        shop_owner, product, shop = db_conn.get_owner(product_id)
+
+        if shop_owner != issuer:
+            return jsonify({'success': False, 'reason': 'NOT OWNER'})
+
+        db_conn.delete(product)
+
+        return jsonify({'success': True, 'product_id': product_id})
+
     @app.route('/api/orders/unapproved/')
     @requires_auth('orders')
     def user_unapproved_orders():
