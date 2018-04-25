@@ -8,6 +8,7 @@ import telegram
 
 import conf
 import db
+import sys
 
 import importlib
 
@@ -390,4 +391,6 @@ class ReBot:
 
 if __name__ == '__main__':
     rebot = ReBot()
+    if len(sys.argv) >= 2 and sys.argv[1] == "late":
+        time.sleep(60)
     rebot.start()
