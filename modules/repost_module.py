@@ -1,4 +1,3 @@
-
 import sys
 from difflib import SequenceMatcher
 import telegram
@@ -86,21 +85,22 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
         rebot.db_conn.save(repost)
 
         try:
-            text = str(repost.repost_id) + '#R\nREPOST DETECTED FROM ' + \
-                   update.message.from_user.mention_markdown() + ' ON ' + \
-                   str(repost.timestamp) + ';'
+            text = str(repost.repost_id) + '#R;REPOST FROM ' + \
+                   update.message.from_user.mention_markdown()
+            # + ' ON ' + \
+            # str(repost.timestamp) + ';'
 
-            if sim_index:
-                text += ' SIMILARITY INDEX: ' + str(sim_index)
+            # if sim_index:
+            #     text += ' SIMILARITY INDEX: ' + str(sim_index)
 
-            if url_repost:
-                text += ' REASON: URL'
+            # if url_repost:
+            #     text += ' REASON: URL'
 
             if original_message_id:
-                if not url_repost:
-                    text += '\nORIGINAL IMAGE IN REPLY'
-                else:
-                    text += '\nORIGINAL MESSAGE IN REPLY'
+                # if not url_repost:
+                #     text += '\nORIGINAL IMAGE IN REPLY'
+                # else:
+                #     text += '\nORIGINAL MESSAGE IN REPLY'
                 msg = rebot.bot.send_message(chat_id,
                                              text,
                                              reply_to_message_id=original_message_id,
@@ -161,15 +161,16 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
 
             rebot.db_conn.save(repost)
 
-            text = str(repost.repost_id) + '#R\nREPOST DETECTED FROM ' + \
-                   update.message.from_user.mention_markdown() + ' ON ' + \
-                   str(timestamp) + ';'
+            text = str(repost.repost_id) + '#R;REPOST FROM ' + \
+                   update.message.from_user.mention_markdown()
+            # + ' ON ' + \
+            # str(timestamp) + ';'
 
-            if sim_index:
-                text += ' SIMILARITY INDEX: ' + str(sim_index)
-
-            if url_repost:
-                text += ' REASON: URL'
+            # if sim_index:
+            #     text += ' SIMILARITY INDEX: ' + str(sim_index)
+            #
+            # if url_repost:
+            #     text += ' REASON: URL'
 
             try:
                 rebot.bot.send_message(update.message.chat.id,
@@ -183,10 +184,10 @@ def issue_repost(rebot, filename, p_hash, text, timestamp, chat_id, original_pos
                 rebot.db_conn.save(repost)
                 return True
 
-            if original_message_id:
-                text = 'ORIGINAL IMAGE' if not url_repost else 'ORIGINAL MESSAGE'
-            else:
-                text = 'ORIGINAL MESSAGE NOT SAVED'
+            # if original_message_id:
+            #     text = 'ORIGINAL IMAGE' if not url_repost else 'ORIGINAL MESSAGE'
+            # else:
+            #     text = 'ORIGINAL MESSAGE NOT SAVED'
             rebot.bot.send_message(update.message.chat.id,
                                    text,
                                    reply_to_message_id=original_message_id, disable_notification=conf.silent)
